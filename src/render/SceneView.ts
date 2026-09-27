@@ -10,13 +10,14 @@ import { buildHouses, buildTrees } from './town'
 
 const MAX_TRACERS = 128
 const TRACER_Y = 1.25
-const TRACER_WIDTH = 0.12
+const TRACER_WIDTH = 0.04
+const TRACER_NEAR_SKIP = 1.5
 const ATTACK_WINDOW = 0.3
 const CULL_Y = 0.9
 const CULL_RADIUS = 1.5
 const GROUND_MARGIN = 160
-const FOG_NEAR = 25
-const FOG_FAR = 60
+const FOG_NEAR = 20
+const FOG_FAR = 46
 
 const COLORS = {
   background: '#6f7f96',
@@ -135,9 +136,12 @@ export class SceneView {
       if (t >= MAX_TRACERS) break
       const dx = tr.x1 - tr.x0
       const dz = tr.z1 - tr.z0
-      this.dummy.position.set(tr.x0, TRACER_Y, tr.z0)
+      const len = Math.hypot(dx, dz)
+      if (len <= TRACER_NEAR_SKIP) continue
+      const k = TRACER_NEAR_SKIP / len
+      this.dummy.position.set(tr.x0 + dx * k, TRACER_Y, tr.z0 + dz * k)
       this.dummy.rotation.set(0, Math.atan2(dx, dz), 0)
-      this.dummy.scale.set(1, 1, Math.max(Math.hypot(dx, dz), 0.01))
+      this.dummy.scale.set(1, 1, len - TRACER_NEAR_SKIP)
       this.dummy.updateMatrix()
       this.tracers.setMatrixAt(t, this.dummy.matrix)
       t++
