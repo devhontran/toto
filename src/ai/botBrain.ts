@@ -1,6 +1,6 @@
 import type { Box } from '../systems/collision'
 import { castShot, type Hittable } from '../systems/combat'
-import { angleOf, normalize } from '../lib/math2'
+import { angleOf, clamp, normalize } from '../lib/math2'
 import { EXIT_ZONE } from '../level/map'
 import {
   BOT_ADVANCE_SPEED,
@@ -10,6 +10,7 @@ import {
   BOT_HOLD_RANGE,
   BOT_LANES,
   BOT_LANE_LOOKAHEAD,
+  BOT_EXIT_CONVERGE,
   BOT_SPEED,
   REVIVE_HP,
   REVIVE_RANGE,
@@ -106,7 +107,8 @@ export function decideBot<T extends Hittable, M extends Teammate>(
     const atExit = Math.hypot(self.x - EXIT_ZONE.x, self.z - EXIT_ZONE.z) <= EXIT_ZONE.r - 1
     const nearestZombie = nearestAliveDist(self, zombies)
     if (!atExit && nearestZombie > BOT_HOLD_RANGE) {
-      const lane = BOT_LANES[self.slot]
+      const converge = clamp((EXIT_ZONE.z + BOT_EXIT_CONVERGE - self.z) / BOT_EXIT_CONVERGE, 0, 1)
+      const lane = BOT_LANES[self.slot] + (EXIT_ZONE.x - BOT_LANES[self.slot]) * converge
       const n = normalize(lane - self.x, -BOT_LANE_LOOKAHEAD)
       moveX = n.x
       moveZ = n.z

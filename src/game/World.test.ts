@@ -152,6 +152,15 @@ describe('World bots', () => {
     expect(bot.z).toBe(z0)
   })
 
+  it('an outer-lane bot converges into the exit zone and holds', () => {
+    const w = withBots()
+    const bot = w.bots[2]
+    bot.x = BOT_LANES[2]
+    bot.z = EXIT_ZONE.z + 30
+    run(w, 15, input())
+    expect(Math.hypot(bot.x - EXIT_ZONE.x, bot.z - EXIT_ZONE.z)).toBeLessThanOrEqual(EXIT_ZONE.r - 1)
+  })
+
   it('a bot kills a zombie in range and increments world.kills', () => {
     const w = withBots()
     const bot = w.bots[0]
