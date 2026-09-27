@@ -7,6 +7,7 @@ const MAX_TRACERS = 128
 const BODY_HEIGHT = 1
 const BODY_RADIUS = 0.4
 const TRACER_Y = 1.1
+const TRACER_WIDTH = 0.12
 
 const COLORS = {
   background: '#0b0b10',
@@ -18,7 +19,7 @@ const COLORS = {
   walker: '#5f8f3e',
   runner: '#b4c94a',
   corpse: '#3a4a2a',
-  tracer: '#ffd66b',
+  tracer: '#fff1a8',
   exit: '#39ff88',
 }
 
@@ -26,8 +27,7 @@ export class SceneView {
   readonly scene = new THREE.Scene()
   private readonly player = new THREE.Group()
   private readonly zombies: THREE.InstancedMesh
-  private readonly tracerPos = new Float32Array(MAX_TRACERS * 6)
-  private readonly tracerGeo = new THREE.BufferGeometry()
+  private readonly tracers: THREE.InstancedMesh
   private readonly dummy = new THREE.Object3D()
   private readonly color = new THREE.Color()
 
@@ -89,13 +89,15 @@ export class SceneView {
     this.scene.add(this.zombies)
     this.dummy.rotation.order = 'YXZ'
 
-    this.tracerGeo.setAttribute(
-      'position',
-      new THREE.BufferAttribute(this.tracerPos, 3).setUsage(THREE.DynamicDrawUsage),
+    this.tracers = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(TRACER_WIDTH, TRACER_WIDTH, 1).translate(0, 0, 0.5),
+      new THREE.MeshBasicMaterial({ color: COLORS.tracer, transparent: true, opacity: 0.9 }),
+      MAX_TRACERS,
     )
-    const tracers = new THREE.LineSegments(this.tracerGeo, new THREE.LineBasicMaterial({ color: COLORS.tracer }))
-    tracers.frustumCulled = false
-    this.scene.add(tracers)
+    this.tracers.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+    this.tracers.count = 0
+    this.tracers.frustumCulled = false
+    this.scene.add(this.tracers)
   }
 
   sync(world: World): void {
@@ -122,10 +124,16 @@ export class SceneView {
     let t = 0
     for (const tr of world.tracers) {
       if (t >= MAX_TRACERS) break
-      this.tracerPos.set([tr.x0, TRACER_Y, tr.z0, tr.x1, TRACER_Y, tr.z1], t * 6)
+      const dx = tr.x1 - tr.x0
+      const dz = tr.z1 - tr.z0
+      this.dummy.position.set(tr.x0, TRACER_Y, tr.z0)
+      this.dummy.rotation.set(0, Math.atan2(dx, dz), 0)
+      this.dummy.scale.set(1, 1, Math.max(Math.hypot(dx, dz), 0.01))
+      this.dummy.updateMatrix()
+      this.tracers.setMatrixAt(t, this.dummy.matrix)
       t++
     }
-    this.tracerGeo.setDrawRange(0, t * 2)
-    this.tracerGeo.attributes.position.needsUpdate = true
+    this.tracers.count = t
+    this.tracers.instanceMatrix.needsUpdate = true
   }
 }

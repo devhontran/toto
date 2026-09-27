@@ -35,7 +35,7 @@ export interface WorldOptions {
   allWeapons?: boolean
 }
 
-export const TRACER_LIFE = 0.06
+export const TRACER_LIFE = 0.1
 export const CORPSE_LIFE = 3
 export const DESPAWN_BEHIND = 40
 const MUZZLE_OFFSET = 0.6

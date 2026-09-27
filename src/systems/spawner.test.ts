@@ -14,11 +14,11 @@ function collect() {
 }
 
 describe('Spawner', () => {
-  it('spawns a walker 22-42m ahead of the player', () => {
+  it('spawns a walker 30-50m ahead of the player', () => {
     const { out, spawn } = collect()
     new Spawner().update(0.016, -5, 0, HOUSES, () => 0.5, spawn)
     expect(out).toHaveLength(1)
-    expect(out[0]).toEqual({ kind: 'walker', x: 0, z: -37 })
+    expect(out[0]).toEqual({ kind: 'walker', x: 0, z: -45 })
   })
 
   it('waits SPAWN_INTERVAL between spawns', () => {
