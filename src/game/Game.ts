@@ -73,7 +73,7 @@ export class Game {
       const yaw = this.input.yaw
       this.world.step(step, this.input.consume(p.x + Math.sin(yaw) * AIM_DISTANCE, p.z + Math.cos(yaw) * AIM_DISTANCE))
     })
-    if (this.world.status !== 'playing' && this.input.locked) document.exitPointerLock()
+    if ((this.world.status === 'won' || this.world.status === 'lost') && this.input.locked) document.exitPointerLock()
     const p = this.world.player
     this.rig.place(p.x, p.z, this.input.yaw, this.input.pitch)
     this.viewmodel.update(p.weapon.def.id, p.weapon.mag, p.alive, p.x, p.z, dt)

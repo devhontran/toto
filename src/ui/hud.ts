@@ -130,7 +130,7 @@ export class Hud {
     this.boss.hidden = !boss || !boss.alive
     if (boss && boss.alive) this.bossFill.style.width = `${(boss.hp / ZOMBIE_STATS.boss.hp) * 100}%`
 
-    const ended = world.status !== 'playing'
+    const ended = world.status === 'won' || world.status === 'lost'
     this.hint.hidden = locked || ended
     this.end.hidden = !ended
     if (ended) {
