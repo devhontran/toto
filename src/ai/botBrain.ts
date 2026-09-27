@@ -1,12 +1,16 @@
 import type { Box } from '../systems/collision'
 import { castShot, type Hittable } from '../systems/combat'
 import { angleOf, normalize } from '../lib/math2'
+import { EXIT_ZONE } from '../level/map'
 import {
+  BOT_ADVANCE_SPEED,
   BOT_AIM_ERROR,
   BOT_DOWNED_SEEK_RANGE,
   BOT_ENGAGE_RANGE,
-  BOT_FOLLOW_STOP,
-  BOT_SLOTS,
+  BOT_HOLD_RANGE,
+  BOT_LANES,
+  BOT_LANE_LOOKAHEAD,
+  BOT_SPEED,
   REVIVE_HP,
   REVIVE_RANGE,
   REVIVE_TIME,
@@ -29,29 +33,33 @@ export interface Teammate {
 export interface BotDecision {
   moveX: number
   moveZ: number
+  speed: number
   target: Hittable | null
   aimAngle: number | null
 }
 
-function goalFor(
-  self: BotSelf,
-  playerX: number,
-  playerZ: number,
-  teammates: readonly Teammate[],
-): { x: number; z: number; stop: number } {
-  let nearest: Teammate | null = null
+function nearestDowned<T extends Teammate>(self: BotSelf, teammates: readonly T[]): T | null {
+  let best: T | null = null
   let bestDist = BOT_DOWNED_SEEK_RANGE
   for (const t of teammates) {
     if (t.alive) continue
     const d = Math.hypot(t.x - self.x, t.z - self.z)
     if (d <= bestDist) {
-      nearest = t
+      best = t
       bestDist = d
     }
   }
-  if (nearest) return { x: nearest.x, z: nearest.z, stop: REVIVE_RANGE }
-  const slot = BOT_SLOTS[self.slot]
-  return { x: playerX + slot.x, z: playerZ + slot.z, stop: BOT_FOLLOW_STOP }
+  return best
+}
+
+function nearestAliveDist<T extends Hittable>(self: BotSelf, zombies: readonly T[]): number {
+  let best = Infinity
+  for (const z of zombies) {
+    if (!z.alive) continue
+    const d = Math.hypot(z.x - self.x, z.z - self.z)
+    if (d < best) best = d
+  }
+  return best
 }
 
 function pickTarget<T extends Hittable>(
@@ -76,26 +84,41 @@ function pickTarget<T extends Hittable>(
 
 export function decideBot<T extends Hittable, M extends Teammate>(
   self: BotSelf,
-  playerX: number,
-  playerZ: number,
   teammates: readonly M[],
   zombies: readonly T[],
   walls: readonly Box[],
   rng: () => number,
 ): BotDecision {
-  const goal = goalFor(self, playerX, playerZ, teammates)
-  const dist = Math.hypot(goal.x - self.x, goal.z - self.z)
   let moveX = 0
   let moveZ = 0
-  if (dist > goal.stop) {
-    const n = normalize(goal.x - self.x, goal.z - self.z)
-    moveX = n.x
-    moveZ = n.z
+  let speed = 0
+
+  const downed = nearestDowned(self, teammates)
+  if (downed) {
+    const dist = Math.hypot(downed.x - self.x, downed.z - self.z)
+    if (dist > REVIVE_RANGE) {
+      const n = normalize(downed.x - self.x, downed.z - self.z)
+      moveX = n.x
+      moveZ = n.z
+      speed = BOT_SPEED
+    }
+  } else {
+    const atExit = Math.hypot(self.x - EXIT_ZONE.x, self.z - EXIT_ZONE.z) <= EXIT_ZONE.r - 1
+    const nearestZombie = nearestAliveDist(self, zombies)
+    if (!atExit && nearestZombie > BOT_HOLD_RANGE) {
+      const lane = BOT_LANES[self.slot]
+      const n = normalize(lane - self.x, -BOT_LANE_LOOKAHEAD)
+      moveX = n.x
+      moveZ = n.z
+      speed = BOT_ADVANCE_SPEED
+    }
   }
+
   const picked = pickTarget(self.x, self.z, zombies, walls, rng)
   return {
     moveX,
     moveZ,
+    speed,
     target: picked?.target ?? null,
     aimAngle: picked?.aimAngle ?? null,
   }

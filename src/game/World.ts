@@ -1,5 +1,5 @@
 import { Player, PLAYER_SPEED } from '../entities/Player'
-import { Bot, BOT_COOLDOWN, BOT_SLOTS, BOT_SPEED } from '../entities/Bot'
+import { Bot, BOT_COOLDOWN, BOT_LANES } from '../entities/Bot'
 import { createZombie, ZOMBIE_ATTACK, type Zombie, type ZombieKind } from '../entities/Zombie'
 import { hearNoise, updateZombie } from '../ai/zombieBrain'
 import { decideBot, updateRevive } from '../ai/botBrain'
@@ -68,10 +68,10 @@ export class World {
     this.player.x = PLAYER_START.x
     this.player.z = PLAYER_START.z
     this.bots = (opts.bots ?? true)
-      ? BOT_SLOTS.map((slot, i) => {
+      ? BOT_LANES.map((laneX, i) => {
           const bot = new Bot(i)
-          bot.x = this.player.x + slot.x
-          bot.z = this.player.z + slot.z
+          bot.x = laneX
+          bot.z = this.player.z
           return bot
         })
       : []
@@ -152,15 +152,13 @@ export class World {
       if (!b.alive) continue
       const decision = decideBot(
         { x: b.x, z: b.z, slot: b.slot },
-        this.player.x,
-        this.player.z,
         this.teammates,
         this.zombies,
         this.walls,
         this.rng,
       )
-      b.x += decision.moveX * BOT_SPEED * dt
-      b.z += decision.moveZ * BOT_SPEED * dt
+      b.x += decision.moveX * decision.speed * dt
+      b.z += decision.moveZ * decision.speed * dt
       for (const w of this.walls) resolveCircleBox(b, w)
       if (decision.target && decision.aimAngle !== null) {
         b.angle = angleOf(decision.target.x - b.x, decision.target.z - b.z)

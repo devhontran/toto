@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { World, CORPSE_LIFE, type FrameInput } from './World'
-import { BOT_SLOTS, REVIVE_HP } from '../entities/Bot'
+import { BOT_LANES, REVIVE_HP } from '../entities/Bot'
+import { EXIT_ZONE } from '../level/map'
 
 const DT = 1 / 60
 
@@ -116,14 +117,32 @@ describe('World', () => {
 })
 
 describe('World bots', () => {
-  it('a bot follows to its formation slot', () => {
+  it('a bot advances along its lane toward the exit when no zombies are near', () => {
     const w = withBots()
-    w.player.z = -30
-    run(w, 6, input())
-    const slot = BOT_SLOTS[0]
     const bot = w.bots[0]
-    const dist = Math.hypot(bot.x - (w.player.x + slot.x), bot.z - (w.player.z + slot.z))
-    expect(dist).toBeLessThanOrEqual(1 + 1e-6)
+    const z0 = bot.z
+    run(w, 2, input())
+    expect(bot.z).toBeLessThan(z0)
+    expect(bot.x).toBeCloseTo(BOT_LANES[0], 1)
+  })
+
+  it('a bot stops advancing when a zombie is within 10m', () => {
+    const w = withBots()
+    const bot = w.bots[0]
+    w.spawnZombie('walker', bot.x, bot.z - 5)
+    const z0 = bot.z
+    w.step(DT, input())
+    expect(bot.z).toBe(z0)
+  })
+
+  it('a bot holds at the exit zone once it arrives', () => {
+    const w = withBots()
+    const bot = w.bots[0]
+    bot.x = EXIT_ZONE.x
+    bot.z = EXIT_ZONE.z + 2
+    const z0 = bot.z
+    w.step(DT, input())
+    expect(bot.z).toBe(z0)
   })
 
   it('a bot kills a zombie in range and increments world.kills', () => {
