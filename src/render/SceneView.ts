@@ -1,25 +1,22 @@
 import * as THREE from 'three'
 import type { World } from '../game/World'
 import type { Assets } from '../level/assets'
-import { EXIT_ZONE, MAP_HALF_WIDTH, MAP_LENGTH } from '../level/map'
+import { EXIT_ZONE } from '../level/map'
 import { REVIVE_TIME } from '../entities/Bot'
 import { HumanView, ZombieView } from './characters'
 import { BOT_LOOKS, PLAYER_LOOK } from './blocky'
-import { buildHouses, buildTrees } from './town'
+import { buildTown } from './town'
 
 const MAX_TRACERS = 128
 const TRACER_Y = 1.25
 const TRACER_WIDTH = 0.04
 const TRACER_NEAR_SKIP = 1.5
 const ATTACK_WINDOW = 0.3
-const GROUND_MARGIN = 160
 const FOG_NEAR = 20
 const FOG_FAR = 46
 
 const COLORS = {
   background: '#6f7f96',
-  ground: '#2b2f27',
-  road: '#3a3a3e',
   tracer: '#fff1a8',
   exit: '#39ff88',
 }
@@ -40,7 +37,7 @@ export class SceneView {
   private world: World | null = null
   private firstPerson = false
 
-  constructor(assets: Assets) {
+  constructor(_assets: Assets) {
     this.scene.background = new THREE.Color(COLORS.background)
     this.scene.fog = new THREE.Fog(COLORS.background, FOG_NEAR, FOG_FAR)
     this.scene.add(new THREE.HemisphereLight('#dfe6ff', '#4a4a3a', 1.8))
@@ -48,22 +45,7 @@ export class SceneView {
     sun.position.set(10, 25, 5)
     this.scene.add(sun)
 
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(MAP_HALF_WIDTH * 2 + GROUND_MARGIN, MAP_LENGTH + GROUND_MARGIN).rotateX(-Math.PI / 2),
-      new THREE.MeshStandardMaterial({ color: COLORS.ground }),
-    )
-    ground.position.z = -MAP_LENGTH / 2
-    this.scene.add(ground)
-
-    const road = new THREE.Mesh(
-      new THREE.PlaneGeometry(12, MAP_LENGTH + GROUND_MARGIN).rotateX(-Math.PI / 2),
-      new THREE.MeshStandardMaterial({ color: COLORS.road }),
-    )
-    road.position.set(0, 0.01, -MAP_LENGTH / 2)
-    this.scene.add(road)
-
-    this.scene.add(buildHouses(assets.house))
-    this.scene.add(buildTrees(assets.tree))
+    this.scene.add(buildTown())
 
     const exit = new THREE.Mesh(
       new THREE.RingGeometry(EXIT_ZONE.r - 0.4, EXIT_ZONE.r, 48).rotateX(-Math.PI / 2),
