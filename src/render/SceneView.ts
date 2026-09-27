@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { World } from '../game/World'
 import { EXIT_ZONE, HOUSE_HEIGHT, HOUSES, MAP_HALF_WIDTH, MAP_LENGTH } from '../level/map'
+import { BOT_COLORS, REVIVE_TIME } from '../entities/Bot'
 
 const MAX_ZOMBIES = 400
 const MAX_TRACERS = 128
@@ -26,6 +27,8 @@ const COLORS = {
 export class SceneView {
   readonly scene = new THREE.Scene()
   private readonly player = new THREE.Group()
+  private readonly bots: THREE.Group[] = []
+  private readonly reviveRing: THREE.Mesh
   private readonly zombies: THREE.InstancedMesh
   private readonly tracers: THREE.InstancedMesh
   private readonly dummy = new THREE.Object3D()
@@ -81,6 +84,26 @@ export class SceneView {
     this.player.add(gun)
     this.scene.add(this.player)
 
+    for (const c of BOT_COLORS) {
+      const group = new THREE.Group()
+      group.add(new THREE.Mesh(bodyGeo, new THREE.MeshStandardMaterial({ color: c })))
+      const botGun = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 0.12, 0.7),
+        new THREE.MeshStandardMaterial({ color: COLORS.gun }),
+      )
+      botGun.position.set(0.2, TRACER_Y, 0.45)
+      group.add(botGun)
+      this.scene.add(group)
+      this.bots.push(group)
+    }
+
+    this.reviveRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.5, 0.62, 24).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.85 }),
+    )
+    this.reviveRing.visible = false
+    this.scene.add(this.reviveRing)
+
     this.zombies = new THREE.InstancedMesh(bodyGeo, new THREE.MeshStandardMaterial(), MAX_ZOMBIES)
     this.zombies.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
     this.zombies.setColorAt(0, this.color.set(COLORS.walker))
@@ -104,6 +127,30 @@ export class SceneView {
     const p = world.player
     this.player.position.set(p.x, 0, p.z)
     this.player.rotation.set(0, p.angle, p.alive ? 0 : Math.PI / 2)
+
+    for (let i = 0; i < this.bots.length; i++) {
+      const b = world.bots[i]
+      const group = this.bots[i]
+      if (!b) {
+        group.visible = false
+        continue
+      }
+      group.visible = true
+      group.position.set(b.x, b.alive ? 0 : BODY_RADIUS, b.z)
+      group.rotation.set(b.alive ? 0 : -Math.PI / 2, b.angle, 0)
+    }
+
+    let ringOwner: { x: number; z: number; reviveProgress: number } | null = null
+    if (!p.alive && p.reviveProgress > 0) ringOwner = p
+    for (const b of world.bots) if (!b.alive && b.reviveProgress > 0) ringOwner = b
+    if (ringOwner) {
+      this.reviveRing.visible = true
+      this.reviveRing.position.set(ringOwner.x, 0.05, ringOwner.z)
+      const frac = Math.min(1, ringOwner.reviveProgress / REVIVE_TIME)
+      this.reviveRing.scale.setScalar(0.5 + frac * 0.8)
+    } else {
+      this.reviveRing.visible = false
+    }
 
     let n = 0
     for (const z of world.zombies) {

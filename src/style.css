@@ -53,10 +53,16 @@ body {
   gap: 16px;
 }
 
-.hud__hp {
+.hud__player-panel {
   position: absolute;
   left: 16px;
   bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hud__hp {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -74,6 +80,47 @@ body {
   height: 100%;
   background: #ff4d4d;
   transition: width 0.15s;
+}
+
+.hud__bots {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hud__bot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.hud__bot-label {
+  width: 20px;
+}
+
+.hud__hp-bar--small {
+  width: 100px;
+  height: 7px;
+}
+
+.hud__bot--downed {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+.hud__downed {
+  position: absolute;
+  left: 50%;
+  bottom: 90px;
+  transform: translateX(-50%);
+  font-size: 20px;
+  color: #ff8080;
+}
+
+.hud__downed[hidden] {
+  display: none;
 }
 
 .hud__weapon {

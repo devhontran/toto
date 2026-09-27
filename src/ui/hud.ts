@@ -1,5 +1,6 @@
 import type { World } from '../game/World'
 import { PLAYER_MAX_HP } from '../entities/Player'
+import { BOT_MAX_HP } from '../entities/Bot'
 import { EXIT_ZONE } from '../level/map'
 
 function setText(el: HTMLElement, value: string): void {
@@ -23,6 +24,9 @@ export class Hud {
   private readonly end: HTMLElement
   private readonly endTitle: HTMLElement
   private readonly endStats: HTMLElement
+  private readonly botFills: HTMLElement[]
+  private readonly botRows: HTMLElement[]
+  private readonly downed: HTMLElement
   private readonly showFps: boolean
 
   constructor(parent: HTMLElement, onRestart: () => void, showFps: boolean) {
@@ -35,10 +39,27 @@ export class Hud {
         <span data-kills></span>
         <span data-distance></span>
       </div>
-      <div class="hud__hp">
-        <div class="hud__hp-bar"><div class="hud__hp-fill" data-hp-fill></div></div>
-        <span data-hp-text></span>
+      <div class="hud__player-panel">
+        <div class="hud__hp">
+          <div class="hud__hp-bar"><div class="hud__hp-fill" data-hp-fill></div></div>
+          <span data-hp-text></span>
+        </div>
+        <div class="hud__bots" data-bots>
+          <div class="hud__bot" data-bot="0">
+            <span class="hud__bot-label">B1</span>
+            <div class="hud__hp-bar hud__hp-bar--small"><div class="hud__hp-fill" data-bot-fill="0"></div></div>
+          </div>
+          <div class="hud__bot" data-bot="1">
+            <span class="hud__bot-label">B2</span>
+            <div class="hud__hp-bar hud__hp-bar--small"><div class="hud__hp-fill" data-bot-fill="1"></div></div>
+          </div>
+          <div class="hud__bot" data-bot="2">
+            <span class="hud__bot-label">B3</span>
+            <div class="hud__hp-bar hud__hp-bar--small"><div class="hud__hp-fill" data-bot-fill="2"></div></div>
+          </div>
+        </div>
       </div>
+      <div class="hud__downed" data-downed hidden>Đang gục — chờ đồng đội</div>
       <div class="hud__weapon">
         <span class="hud__weapon-name" data-weapon></span>
         <span class="hud__ammo" data-ammo></span>
@@ -60,6 +81,9 @@ export class Hud {
     this.end = q('[data-end]')
     this.endTitle = q('[data-end-title]')
     this.endStats = q('[data-end-stats]')
+    this.botFills = [0, 1, 2].map((i) => q(`[data-bot-fill="${i}"]`))
+    this.botRows = [0, 1, 2].map((i) => q(`[data-bot="${i}"]`))
+    this.downed = q('[data-downed]')
     this.fps.hidden = !showFps
     q('[data-restart]').addEventListener('click', onRestart)
   }
@@ -78,6 +102,15 @@ export class Hud {
     const d = Math.round(Math.hypot(p.x - EXIT_ZONE.x, p.z - EXIT_ZONE.z))
     setText(this.distance, `Còn ${d}m`)
     if (this.showFps) setText(this.fps, `${Math.round(fps)} fps · ${world.aliveZombies} zombie`)
+
+    for (let i = 0; i < this.botFills.length; i++) {
+      const bot = world.bots[i]
+      this.botRows[i].hidden = !bot
+      if (!bot) continue
+      this.botFills[i].style.width = `${(bot.hp / BOT_MAX_HP) * 100}%`
+      this.botRows[i].classList.toggle('hud__bot--downed', !bot.alive)
+    }
+    this.downed.hidden = p.alive
 
     const ended = world.status !== 'playing'
     this.end.hidden = !ended
