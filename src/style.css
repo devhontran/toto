@@ -275,3 +275,8 @@ body {
   letter-spacing: 0.04em;
   background: #0b0b10;
 }
+
+.hud--cinematic .hud__player-panel,
+.hud--cinematic .hud__weapon {
+  display: none;
+}

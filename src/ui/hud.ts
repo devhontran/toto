@@ -149,6 +149,7 @@ export class Hud {
     const cinematic = world.status === 'escaping' || world.status === 'won'
     this.hint.hidden = locked || ended || cinematic
     this.crosshair.hidden = cinematic
+    this.root.classList.toggle('hud--cinematic', cinematic)
     this.minimap.canvas.hidden = cinematic
     this.minimap.draw(world, yaw, dt)
     this.bigmap.update(world, yaw, mapHeld && !ended && !cinematic)
