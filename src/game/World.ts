@@ -1,9 +1,11 @@
 import { Player, PLAYER_SPEED } from '../entities/Player'
+import { Bot, BOT_COOLDOWN, BOT_SLOTS, BOT_SPEED } from '../entities/Bot'
 import { createZombie, ZOMBIE_ATTACK, type Zombie, type ZombieKind } from '../entities/Zombie'
 import { hearNoise, updateZombie } from '../ai/zombieBrain'
+import { decideBot, updateRevive } from '../ai/botBrain'
 import { resolveCircleBox, resolveCircleCircle, type Box } from '../systems/collision'
 import { applyDamage, castShot } from '../systems/combat'
-import { pelletAngles, WEAPONS, WeaponState } from '../systems/weapons'
+import { pelletAngles, WEAPONS, WeaponState, type WeaponDef } from '../systems/weapons'
 import { SpatialGrid } from '../systems/spatialGrid'
 import { Spawner } from '../systems/spawner'
 import { boundaryWalls, EXIT_ZONE, HOUSES, PLAYER_START } from '../level/map'
@@ -33,6 +35,7 @@ export interface WorldOptions {
   rng?: () => number
   spawning?: boolean
   allWeapons?: boolean
+  bots?: boolean
 }
 
 export const TRACER_LIFE = 0.1
@@ -43,6 +46,7 @@ const PLAYER_CROWD_SHARE = 0.1
 
 export class World {
   readonly player = new Player()
+  readonly bots: Bot[]
   readonly zombies: Zombie[] = []
   readonly walls: Box[] = [...HOUSES, ...boundaryWalls()]
   readonly tracers: Tracer[] = []
@@ -55,7 +59,7 @@ export class World {
   private readonly grid = new SpatialGrid<Zombie>(4)
   private readonly spawner = new Spawner()
   private readonly near: Zombie[] = []
-  private readonly targets: Player[]
+  private readonly teammates: (Player | Bot)[]
   private nextId = 1
 
   constructor(opts: WorldOptions = {}) {
@@ -63,7 +67,15 @@ export class World {
     this.spawning = opts.spawning ?? true
     this.player.x = PLAYER_START.x
     this.player.z = PLAYER_START.z
-    this.targets = [this.player]
+    this.bots = (opts.bots ?? true)
+      ? BOT_SLOTS.map((slot, i) => {
+          const bot = new Bot(i)
+          bot.x = this.player.x + slot.x
+          bot.z = this.player.z + slot.z
+          return bot
+        })
+      : []
+    this.teammates = [this.player, ...this.bots]
     if (opts.allWeapons) {
       this.player.weapons.push(new WeaponState(WEAPONS.shotgun, 24), new WeaponState(WEAPONS.rifle, 90))
     }
@@ -86,6 +98,8 @@ export class World {
     this.time += dt
     this.updatePlayer(dt, input)
     this.updateZombies(dt)
+    this.updateBots(dt)
+    updateRevive(this.teammates, dt)
     this.updateTracers(dt)
     if (this.spawning) {
       this.spawner.update(dt, this.player.z, this.aliveZombies, this.walls, this.rng, (k, x, z) =>
@@ -97,6 +111,7 @@ export class World {
 
   private updatePlayer(dt: number, input: FrameInput): void {
     const p = this.player
+    if (!p.alive) return
     if (input.switchTo !== null) p.switchTo(input.switchTo)
     if (input.reload) p.weapon.startReload()
     const m = normalize(input.moveX, input.moveZ)
@@ -110,24 +125,63 @@ export class World {
     if (input.fire && p.weapon.tryFire()) this.fire()
   }
 
+  private fireRay(ox: number, oz: number, angle: number, def: WeaponDef): void {
+    const dx = Math.sin(angle)
+    const dz = Math.cos(angle)
+    const hit = castShot(ox, oz, dx, dz, def.range, this.zombies, this.walls)
+    this.tracers.push({ x0: ox, z0: oz, x1: ox + dx * hit.dist, z1: oz + dz * hit.dist, life: TRACER_LIFE })
+    if (hit.target) {
+      hit.target.x += dx * def.knockback
+      hit.target.z += dz * def.knockback
+      if (applyDamage(hit.target, def.damage)) this.kills++
+    }
+  }
+
   private fire(): void {
     const p = this.player
     const def = p.weapon.def
     const ox = p.x + Math.sin(p.angle) * MUZZLE_OFFSET
     const oz = p.z + Math.cos(p.angle) * MUZZLE_OFFSET
-    for (const offset of pelletAngles(def, this.rng)) {
-      const a = p.angle + offset
-      const dx = Math.sin(a)
-      const dz = Math.cos(a)
-      const hit = castShot(ox, oz, dx, dz, def.range, this.zombies, this.walls)
-      this.tracers.push({ x0: ox, z0: oz, x1: ox + dx * hit.dist, z1: oz + dz * hit.dist, life: TRACER_LIFE })
-      if (hit.target) {
-        hit.target.x += dx * def.knockback
-        hit.target.z += dz * def.knockback
-        if (applyDamage(hit.target, def.damage)) this.kills++
+    for (const offset of pelletAngles(def, this.rng)) this.fireRay(ox, oz, p.angle + offset, def)
+    for (const z of this.zombies) hearNoise(z, p.x, p.z)
+  }
+
+  private updateBots(dt: number): void {
+    for (const b of this.bots) {
+      b.weapon.update(dt)
+      if (!b.alive) continue
+      const decision = decideBot(
+        { x: b.x, z: b.z, slot: b.slot },
+        this.player.x,
+        this.player.z,
+        this.teammates,
+        this.zombies,
+        this.walls,
+        this.rng,
+      )
+      b.x += decision.moveX * BOT_SPEED * dt
+      b.z += decision.moveZ * BOT_SPEED * dt
+      for (const w of this.walls) resolveCircleBox(b, w)
+      if (decision.target && decision.aimAngle !== null) {
+        b.angle = angleOf(decision.target.x - b.x, decision.target.z - b.z)
+        if (b.weapon.tryFire()) {
+          b.weapon.cooldown = BOT_COOLDOWN
+          const ox = b.x + Math.sin(decision.aimAngle) * MUZZLE_OFFSET
+          const oz = b.z + Math.cos(decision.aimAngle) * MUZZLE_OFFSET
+          this.fireRay(ox, oz, decision.aimAngle, b.weapon.def)
+          for (const z of this.zombies) hearNoise(z, b.x, b.z)
+        }
+      } else if (decision.moveX !== 0 || decision.moveZ !== 0) {
+        b.angle = angleOf(decision.moveX, decision.moveZ)
       }
     }
-    for (const z of this.zombies) hearNoise(z, p.x, p.z)
+    for (let i = 0; i < this.bots.length; i++) {
+      if (!this.bots[i].alive) continue
+      for (let j = i + 1; j < this.bots.length; j++) {
+        if (this.bots[j].alive) resolveCircleCircle(this.bots[i], this.bots[j])
+      }
+      if (this.player.alive) resolveCircleCircle(this.player, this.bots[i], 0.5)
+    }
   }
 
   private updateZombies(dt: number): void {
@@ -140,14 +194,18 @@ export class World {
         z.deadTime += dt
         continue
       }
-      const struck = updateZombie(z, this.targets, dt, this.rng)
+      const struck = updateZombie(z, this.teammates, dt, this.rng)
       if (struck) applyDamage(struck, ZOMBIE_ATTACK.damage)
       this.grid.query(z.x, z.z, z.r * 2, this.near)
       for (const o of this.near) if (o.id > z.id) resolveCircleCircle(z, o)
-      if (p.alive) resolveCircleCircle(p, z, PLAYER_CROWD_SHARE)
+      for (const t of this.teammates) if (t.alive) resolveCircleCircle(t, z, PLAYER_CROWD_SHARE)
       for (const w of this.walls) resolveCircleBox(z, w)
     }
     for (const w of this.walls) resolveCircleBox(p, w)
+    for (const b of this.bots) {
+      if (!b.alive) continue
+      for (const w of this.walls) resolveCircleBox(b, w)
+    }
 
     let keep = 0
     for (const z of this.zombies) {
@@ -168,7 +226,7 @@ export class World {
 
   private updateStatus(): void {
     const p = this.player
-    if (!p.alive) this.status = 'lost'
+    if (!p.alive && this.bots.every((b) => !b.alive)) this.status = 'lost'
     else if (Math.hypot(p.x - EXIT_ZONE.x, p.z - EXIT_ZONE.z) <= EXIT_ZONE.r) this.status = 'won'
   }
 }

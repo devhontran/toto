@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { World, CORPSE_LIFE, type FrameInput } from './World'
+import { BOT_SLOTS, REVIVE_HP } from '../entities/Bot'
 
 const DT = 1 / 60
 
@@ -13,7 +14,11 @@ function run(world: World, seconds: number, inp: FrameInput) {
 }
 
 function quiet(allWeapons = false) {
-  return new World({ rng: () => 0.5, spawning: false, allWeapons })
+  return new World({ rng: () => 0.5, spawning: false, allWeapons, bots: false })
+}
+
+function withBots() {
+  return new World({ rng: () => 0.5, spawning: false })
 }
 
 describe('World', () => {
@@ -107,5 +112,83 @@ describe('World', () => {
     w.status = 'lost'
     w.step(DT, input({ moveZ: -1 }))
     expect(w.player.z).toBe(-5)
+  })
+})
+
+describe('World bots', () => {
+  it('a bot follows to its formation slot', () => {
+    const w = withBots()
+    w.player.z = -30
+    run(w, 6, input())
+    const slot = BOT_SLOTS[0]
+    const bot = w.bots[0]
+    const dist = Math.hypot(bot.x - (w.player.x + slot.x), bot.z - (w.player.z + slot.z))
+    expect(dist).toBeLessThanOrEqual(1 + 1e-6)
+  })
+
+  it('a bot kills a zombie in range and increments world.kills', () => {
+    const w = withBots()
+    const bot = w.bots[0]
+    const z = w.spawnZombie('walker', bot.x, bot.z - 5)
+    run(w, 1, input())
+    expect(z.alive).toBe(false)
+    expect(w.kills).toBe(1)
+  })
+
+  it('a zombie attacks a nearby bot', () => {
+    const w = withBots()
+    const bot = w.bots[0]
+    w.spawnZombie('walker', bot.x, bot.z - 0.9)
+    w.step(DT, input())
+    expect(bot.hp).toBe(90)
+  })
+
+  it('a downed player cannot move or fire', () => {
+    const w = quiet()
+    w.player.alive = false
+    w.player.hp = 0
+    const x0 = w.player.x
+    const z0 = w.player.z
+    run(w, 1, input({ moveZ: -1, fire: true }))
+    expect(w.player.x).toBe(x0)
+    expect(w.player.z).toBe(z0)
+    expect(w.tracers).toHaveLength(0)
+  })
+
+  it('the team only loses once the player and all bots are downed', () => {
+    const w = withBots()
+    w.player.alive = false
+    w.bots[0].alive = false
+    w.bots[1].alive = false
+    w.step(DT, input())
+    expect(w.status).toBe('playing')
+    w.bots[2].alive = false
+    w.step(DT, input())
+    expect(w.status).toBe('lost')
+  })
+
+  it('revives a downed bot after 3s nearby, and resets progress if the reviver walks away', () => {
+    const w = withBots()
+    const bot = w.bots[0]
+    bot.alive = false
+    bot.hp = 0
+    w.bots[1].alive = false
+    w.bots[2].alive = false
+    w.player.x = bot.x
+    w.player.z = bot.z
+
+    run(w, 1, input())
+    expect(bot.reviveProgress).toBeCloseTo(1, 1)
+
+    w.player.x = bot.x + 10
+    w.step(DT, input())
+    expect(bot.reviveProgress).toBe(0)
+    expect(bot.alive).toBe(false)
+
+    w.player.x = bot.x
+    w.player.z = bot.z
+    run(w, 3.1, input())
+    expect(bot.alive).toBe(true)
+    expect(bot.hp).toBe(REVIVE_HP)
   })
 })
