@@ -74,3 +74,27 @@ describe('hearNoise', () => {
     expect(z.hasAlert).toBe(false)
   })
 })
+
+describe('boss', () => {
+  it('has boss stats', () => {
+    const z = createZombie(1, 'boss', 0, 0)
+    expect(z.hp).toBe(1500)
+    expect(z.speed).toBe(2.2)
+    expect(z.r).toBe(1)
+    expect(z.sight).toBe(30)
+    expect(z.knockback).toBe(0.1)
+    expect(z.attack).toEqual({ damage: 30, cooldown: 1.5, range: 1.5 })
+  })
+
+  it('sees a target at 25m and strikes from 1.5m with a 1.5s cooldown', () => {
+    const far = createZombie(1, 'boss', 0, -25)
+    updateZombie(far, [target(0, 0)], 0.1, rng)
+    expect(far.state).toBe('chase')
+    const z = createZombie(2, 'boss', 0, -2.8)
+    const t = target(0, 0)
+    expect(updateZombie(z, [t], 0.016, rng)).toBe(t)
+    expect(z.attackCooldown).toBe(1.5)
+    expect(updateZombie(z, [t], 1, rng)).toBeNull()
+    expect(updateZombie(z, [t], 0.6, rng)).toBe(t)
+  })
+})

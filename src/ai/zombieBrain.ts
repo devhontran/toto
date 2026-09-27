@@ -1,10 +1,4 @@
-import {
-  ZOMBIE_ATTACK,
-  ZOMBIE_HEARING,
-  ZOMBIE_SIGHT,
-  ZOMBIE_WANDER_FACTOR,
-  type Zombie,
-} from '../entities/Zombie'
+import { ZOMBIE_HEARING, ZOMBIE_WANDER_FACTOR, type Zombie } from '../entities/Zombie'
 import { angleOf, dirFromAngle, normalize } from '../lib/math2'
 
 export interface Target {
@@ -39,7 +33,7 @@ export function updateZombie<T extends Target>(
   z.attackCooldown = Math.max(0, z.attackCooldown - dt)
 
   let target: T | null = null
-  let best = ZOMBIE_SIGHT
+  let best = z.sight
   for (const t of targets) {
     if (!t.alive) continue
     const d = Math.hypot(t.x - z.x, t.z - z.z)
@@ -53,9 +47,9 @@ export function updateZombie<T extends Target>(
     z.state = 'chase'
     z.hasAlert = false
     z.angle = angleOf(target.x - z.x, target.z - z.z)
-    if (best - z.r - target.r <= ZOMBIE_ATTACK.range) {
+    if (best - z.r - target.r <= z.attack.range) {
       if (z.attackCooldown === 0) {
-        z.attackCooldown = ZOMBIE_ATTACK.cooldown
+        z.attackCooldown = z.attack.cooldown
         return target
       }
       return null

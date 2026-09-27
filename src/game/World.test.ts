@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { World, CORPSE_LIFE, type FrameInput } from './World'
+import { World, CORPSE_LIFE, BOSS_TRIGGER, type FrameInput } from './World'
+import { BOSS_DAMAGE_TAKEN } from '../entities/Zombie'
 import { BOT_LANES, REVIVE_HP } from '../entities/Bot'
 import { EXIT_ZONE } from '../level/map'
 
@@ -65,9 +66,14 @@ describe('World', () => {
     expect(w.status).toBe('lost')
   })
 
-  it('wins on reaching the exit zone', () => {
+  it('wins on reaching the exit zone only once the boss is dead', () => {
     const w = quiet()
     w.player.z = -288
+    w.step(DT, input())
+    expect(w.bossSpawned).toBe(true)
+    expect(w.status).toBe('playing')
+    w.boss!.alive = false
+    w.boss!.hp = 0
     w.step(DT, input())
     expect(w.status).toBe('won')
   })
@@ -225,5 +231,69 @@ describe('World bots', () => {
     run(w, 3.1, input())
     expect(bot.alive).toBe(true)
     expect(bot.hp).toBe(REVIVE_HP)
+  })
+})
+
+describe('World boss', () => {
+  const bosses = (w: World) => w.zombies.filter((z) => z.kind === 'boss').length
+
+  it('spawns the boss once when the player crosses the trigger, and it chases at once', () => {
+    const w = quiet()
+    w.player.z = EXIT_ZONE.z + BOSS_TRIGGER + 1
+    w.step(DT, input())
+    expect(w.bossSpawned).toBe(false)
+    expect(w.boss).toBeNull()
+    w.player.z = EXIT_ZONE.z + BOSS_TRIGGER
+    w.step(DT, input())
+    expect(w.bossSpawned).toBe(true)
+    const boss = w.boss!
+    expect(boss.kind).toBe('boss')
+    expect(boss.x).toBeCloseTo(EXIT_ZONE.x, 1)
+    expect(boss.z).toBeGreaterThan(EXIT_ZONE.z - 4)
+    expect(boss.z).toBeLessThan(EXIT_ZONE.z - 3.9)
+    expect(boss.state).toBe('chase')
+    boss.alive = false
+    boss.hp = 0
+    w.player.z = EXIT_ZONE.z + BOSS_TRIGGER + 20
+    w.step(DT, input())
+    w.player.z = EXIT_ZONE.z + BOSS_TRIGGER - 5
+    run(w, 1, input())
+    expect(bosses(w)).toBe(1)
+    expect(w.boss).toBe(boss)
+  })
+
+  it('reduces knockback and damage taken by the boss', () => {
+    const w = quiet()
+    const boss = w.spawnZombie('boss', 0, -15)
+    w.step(DT, input({ fire: true }))
+    expect(boss.hp).toBeCloseTo(1500 - 20 * BOSS_DAMAGE_TAKEN, 6)
+    expect(boss.z).toBeCloseTo(-15 - 0.2 * 0.1 + 2.2 * DT, 4)
+  })
+
+  it('hits a teammate for 30', () => {
+    const w = quiet()
+    w.spawnZombie('boss', w.player.x, w.player.z - 2.8)
+    w.step(DT, input())
+    expect(w.player.hp).toBe(70)
+  })
+
+  it('keeps the boss corpse past CORPSE_LIFE and never despawns it behind', () => {
+    const w = quiet()
+    const behind = w.spawnZombie('boss', 0, 36)
+    const dead = w.spawnZombie('boss', 10, -60)
+    dead.alive = false
+    dead.hp = 0
+    run(w, CORPSE_LIFE + 1, input())
+    expect(w.zombies).toContain(behind)
+    expect(w.zombies).toContain(dead)
+  })
+
+  it('crowd separation pushes a regular zombie off the boss', () => {
+    const w = quiet()
+    const walker = w.spawnZombie('walker', 0.5, -150)
+    const boss = w.spawnZombie('boss', 0, -150)
+    w.step(DT, input())
+    expect(Math.hypot(boss.x, boss.z + 150)).toBeLessThan(0.15)
+    expect(Math.hypot(walker.x - 0.5, walker.z + 150)).toBeGreaterThan(0.7)
   })
 })

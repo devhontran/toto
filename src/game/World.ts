@@ -1,6 +1,6 @@
 import { Player, PLAYER_SPEED } from '../entities/Player'
 import { Bot, BOT_COOLDOWN, BOT_LANES } from '../entities/Bot'
-import { createZombie, ZOMBIE_ATTACK, type Zombie, type ZombieKind } from '../entities/Zombie'
+import { createZombie, ZOMBIE_RADIUS, type Zombie, type ZombieKind } from '../entities/Zombie'
 import { hearNoise, updateZombie } from '../ai/zombieBrain'
 import { decideBot, updateRevive } from '../ai/botBrain'
 import { resolveCircleBox, resolveCircleCircle, type Box } from '../systems/collision'
@@ -43,6 +43,9 @@ export const CORPSE_LIFE = 3
 export const DESPAWN_BEHIND = 40
 const MUZZLE_OFFSET = 0.6
 const PLAYER_CROWD_SHARE = 0.1
+const BOSS_CROWD_SHARE = 0.1
+export const BOSS_TRIGGER = 50
+export const BOSS_SPAWN_BEHIND_EXIT = 4
 
 export class World {
   readonly player = new Player()
@@ -51,6 +54,8 @@ export class World {
   readonly walls: Box[] = [...HOUSES, ...boundaryWalls()]
   readonly tracers: Tracer[] = []
   status: GameStatus = 'playing'
+  boss: Zombie | null = null
+  bossSpawned = false
   kills = 0
   time = 0
 
@@ -97,6 +102,7 @@ export class World {
     if (this.status !== 'playing') return
     this.time += dt
     this.updatePlayer(dt, input)
+    this.updateBoss()
     this.updateZombies(dt)
     this.updateBots(dt)
     updateRevive(this.teammates, dt)
@@ -131,9 +137,10 @@ export class World {
     const hit = castShot(ox, oz, dx, dz, def.range, this.zombies, this.walls)
     this.tracers.push({ x0: ox, z0: oz, x1: ox + dx * hit.dist, z1: oz + dz * hit.dist, life: TRACER_LIFE })
     if (hit.target) {
-      hit.target.x += dx * def.knockback
-      hit.target.z += dz * def.knockback
-      if (applyDamage(hit.target, def.damage)) this.kills++
+      const t = hit.target
+      t.x += dx * def.knockback * t.knockback
+      t.z += dz * def.knockback * t.knockback
+      if (applyDamage(t, def.damage * t.damageTaken)) this.kills++
     }
   }
 
@@ -193,10 +200,16 @@ export class World {
         continue
       }
       const struck = updateZombie(z, this.teammates, dt, this.rng)
-      if (struck) applyDamage(struck, ZOMBIE_ATTACK.damage)
-      this.grid.query(z.x, z.z, z.r * 2, this.near)
-      for (const o of this.near) if (o.id > z.id) resolveCircleCircle(z, o)
-      for (const t of this.teammates) if (t.alive) resolveCircleCircle(t, z, PLAYER_CROWD_SHARE)
+      if (struck) applyDamage(struck, z.attack.damage)
+      const boss = z.kind === 'boss'
+      this.grid.query(z.x, z.z, boss ? z.r + ZOMBIE_RADIUS : z.r * 2, this.near)
+      for (const o of this.near) {
+        if (boss) {
+          if (o !== z) resolveCircleCircle(z, o, BOSS_CROWD_SHARE)
+        } else if (o.id > z.id && o.kind !== 'boss') resolveCircleCircle(z, o)
+      }
+      const share = boss ? 1 - BOSS_CROWD_SHARE : PLAYER_CROWD_SHARE
+      for (const t of this.teammates) if (t.alive) resolveCircleCircle(t, z, share)
       for (const w of this.walls) resolveCircleBox(z, w)
     }
     for (const w of this.walls) resolveCircleBox(p, w)
@@ -207,10 +220,30 @@ export class World {
 
     let keep = 0
     for (const z of this.zombies) {
-      const expired = z.alive ? z.z - p.z > DESPAWN_BEHIND : z.deadTime > CORPSE_LIFE
+      const expired = z.kind !== 'boss' && (z.alive ? z.z - p.z > DESPAWN_BEHIND : z.deadTime > CORPSE_LIFE)
       if (!expired) this.zombies[keep++] = z
     }
     this.zombies.length = keep
+  }
+
+  private updateBoss(): void {
+    if (!this.bossSpawned && this.player.z <= EXIT_ZONE.z + BOSS_TRIGGER) {
+      this.bossSpawned = true
+      this.boss = this.spawnZombie('boss', EXIT_ZONE.x, EXIT_ZONE.z - BOSS_SPAWN_BEHIND_EXIT)
+    }
+    const b = this.boss
+    if (!b || !b.alive) return
+    let best = Infinity
+    for (const t of this.teammates) {
+      if (!t.alive) continue
+      const d = Math.hypot(t.x - b.x, t.z - b.z)
+      if (d < best) {
+        best = d
+        b.hasAlert = true
+        b.alertX = t.x
+        b.alertZ = t.z
+      }
+    }
   }
 
   private updateTracers(dt: number): void {
@@ -225,6 +258,10 @@ export class World {
   private updateStatus(): void {
     const p = this.player
     if (!p.alive && this.bots.every((b) => !b.alive)) this.status = 'lost'
-    else if (Math.hypot(p.x - EXIT_ZONE.x, p.z - EXIT_ZONE.z) <= EXIT_ZONE.r) this.status = 'won'
+    else if (
+      Math.hypot(p.x - EXIT_ZONE.x, p.z - EXIT_ZONE.z) <= EXIT_ZONE.r &&
+      !(this.boss && this.boss.alive)
+    )
+      this.status = 'won'
   }
 }
