@@ -38,8 +38,8 @@ export const STREET_WIDTH = 12
 export const STREET_SPACING = 44
 export const CITY_HALF_WIDTH = 126
 export const CITY_DEPTH = 410
-export const V_STREETS: readonly number[] = [-88, -44, 0, 44, 88]
-export const H_STREETS: readonly number[] = [-44, -88, -132, -176, -220, -264, -308]
+export const V_STREETS: readonly number[] = [-2, -1, 0, 1, 2].map((i) => i * STREET_SPACING)
+export const H_STREETS: readonly number[] = [1, 2, 3, 4, 5, 6, 7].map((k) => -k * STREET_SPACING)
 
 const HALF_STREET = STREET_WIDTH / 2
 const SIDEWALK = 2
