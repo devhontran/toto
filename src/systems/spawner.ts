@@ -4,8 +4,8 @@ import { MAP_HALF_WIDTH, MAP_LENGTH } from '../level/map'
 import { clamp } from '../lib/math2'
 
 export const SPAWN_INTERVAL = 0.5
-const SPAWN_AHEAD_MIN = 30
-const SPAWN_AHEAD_RANGE = 20
+const SPAWN_AHEAD_MIN = 45
+const SPAWN_AHEAD_RANGE = 25
 const SPAWN_ATTEMPTS = 3
 
 export function maxAlive(progress: number): number {

@@ -14,11 +14,11 @@ function collect() {
 }
 
 describe('Spawner', () => {
-  it('spawns a walker 30-50m ahead of the player', () => {
+  it('spawns a walker 45-70m ahead of the player', () => {
     const { out, spawn } = collect()
     new Spawner().update(0.016, -5, 0, HOUSES, () => 0.5, spawn)
     expect(out).toHaveLength(1)
-    expect(out[0]).toEqual({ kind: 'walker', x: 0, z: -45 })
+    expect(out[0]).toEqual({ kind: 'walker', x: 0, z: -62.5 })
   })
 
   it('waits SPAWN_INTERVAL between spawns', () => {
@@ -39,7 +39,7 @@ describe('Spawner', () => {
 
   it('retries when the chosen spot is inside a house', () => {
     const { out, spawn } = collect()
-    new Spawner().update(0.016, -5, 0, HOUSES, seq(0.2, 0.5, 0.5, 0.5, 0.9), spawn)
+    new Spawner().update(0.016, -25, 0, HOUSES, seq(0.8, 0.5, 0.5, 0.5, 0.9), spawn)
     expect(out).toHaveLength(1)
     expect(out[0].x).toBe(0)
   })
