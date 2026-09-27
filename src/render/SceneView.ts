@@ -78,9 +78,9 @@ export class SceneView {
     })
 
     this.scene.background = new THREE.Color(COLORS.background)
-    this.scene.fog = new THREE.Fog(COLORS.background, 30, 60)
-    this.scene.add(new THREE.HemisphereLight('#cfd8ff', '#2a2a20', 0.8))
-    const sun = new THREE.DirectionalLight('#fff2dd', 2)
+    this.scene.fog = new THREE.Fog(COLORS.background, 28, 55)
+    this.scene.add(new THREE.HemisphereLight('#dfe6ff', '#4a4a3a', 1.8))
+    const sun = new THREE.DirectionalLight('#fff2dd', 2.6)
     sun.position.set(10, 25, 5)
     this.scene.add(sun)
 

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-const OFFSET = new THREE.Vector3(0, 20, 11)
+const OFFSET = new THREE.Vector3(0, 15, 8.5)
 const LOOK_AHEAD = -3
 const FOLLOW_SHARPNESS = 8
 
