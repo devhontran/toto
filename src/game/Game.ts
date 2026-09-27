@@ -75,8 +75,10 @@ export class Game {
     })
     if ((this.world.status === 'won' || this.world.status === 'lost') && this.input.locked) document.exitPointerLock()
     const p = this.world.player
+    const cinematic = this.world.status === 'escaping' || this.world.status === 'won'
     this.rig.place(p.x, p.z, this.input.yaw, this.input.pitch)
     this.viewmodel.update(p.weapon.def.id, p.weapon.mag, p.alive, p.x, p.z, dt)
+    if (cinematic) this.viewmodel.root.visible = false
     this.view.sync(this.world, dt, this.camera)
     this.hud.update(this.world, this.fps, this.input.locked, this.input.yaw, this.input.mapHeld, dt)
     this.renderer.render(this.view.scene, this.camera)
