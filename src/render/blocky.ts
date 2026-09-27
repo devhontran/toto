@@ -13,7 +13,7 @@ const FLASH_TIME = 0.12
 const RECOIL_TIME = 0.06
 const RECOIL_BACK = 0.05
 const RECOIL_KICK = 0.15
-const STRIDE = 1.6
+export const STRIDE = 1.6
 const WALK_SWING = (30 * Math.PI) / 180
 const RUN_SWING = (55 * Math.PI) / 180
 const WALK_SPEED = 2
@@ -29,6 +29,13 @@ const AIM_PITCH_L = -HALF_PI + 0.08
 const FLASH_COLOR = '#ff3030'
 const FLASH_EMISSIVE = '#5a0a0a'
 const GUN_SCALE = 1.5
+const SLAM_TIME = 0.9
+const SLAM_RAISE = 0.45
+const SLAM_HIT = 0.65
+const SLAM_TOP = Math.PI * 0.95
+const SLAM_LOW = 0.2
+const SLAM_LEAN = 0.3
+const HEAVY_ROLL = 0.06
 
 export interface Look {
   skin: string
@@ -42,10 +49,14 @@ export interface Look {
   mouth: string
   bareArms: boolean
   face: readonly string[]
+  glow?: string
+  armor?: string
+  crown?: string
 }
 
 const HUMAN_FACE = ['HHHHHHHH', 'HHHHHHHH', 'HSSSSSSH', 'SSSSSSSS', 'SWESSEWS', 'SSSNNSSS', 'SSMMMMSS', 'SSSSSSSS']
 const ZOMBIE_FACE = ['HHHHHHHH', 'HSHHSSHH', 'SSSSSSSS', 'SSSSSSSS', 'SEESSEES', 'SSSNNSSS', 'SSMMMMSS', 'SSSSSSSS']
+const BOSS_FACE = ['HHHHHHHH', 'HSHHSSHH', 'SSSSSSSS', 'SHHSSHHS', 'SEESSEES', 'SSSNNSSS', 'SMMMMMMS', 'SMSMMSMS']
 const SIDE = ['HHHHHHHH', 'HHHHHHHH', 'HHHHHHHS', 'HHSSSSSS', 'HSSSSSSS', 'SSSSSSSS', 'SSSSSSSS', 'SSSSSSSS']
 const TOP = Array<string>(8).fill('HHHHHHHH')
 const BACK = ['HHHHHHHH', 'HHHHHHHH', 'HHHHHHHH', 'HHHHHHHH', 'HHHHHHHH', 'HHHHHHHH', 'SSSSSSSS', 'SSSSSSSS']
@@ -92,6 +103,19 @@ export const BOT_LOOKS: readonly Look[] = [
 export const ZOMBIE_LOOKS = {
   walker: zombie('#5b8f3a', '#3e6b27'),
   runner: zombie('#7fb85a', '#55893a'),
+  boss: {
+    ...zombie('#3f6b2a', '#2b4a1c'),
+    shirt: '#5b2a86',
+    pants: '#2e2a5e',
+    shoes: '#2e2a5e',
+    eyes: '#ff2a1a',
+    eyeWhite: '#ff2a1a',
+    mouth: '#1a0f0a',
+    face: BOSS_FACE,
+    glow: '#ff2a1a',
+    armor: '#8e949c',
+    crown: '#d9a92a',
+  } satisfies Look,
 } as const
 
 function box(w: number, h: number, d: number, x: number, y: number, z: number, color: string): THREE.BufferGeometry {
@@ -127,6 +151,29 @@ function headGeometry(): THREE.BufferGeometry {
   return g
 }
 
+function pixelTexture(canvas: HTMLCanvasElement): THREE.CanvasTexture {
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.magFilter = THREE.NearestFilter
+  tex.minFilter = THREE.NearestFilter
+  tex.generateMipmaps = false
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
+function glowTexture(look: Look, glow: string): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = TILE * TILES
+  canvas.height = TILE
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = '#000000'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = glow
+  look.face.forEach((row, y) => {
+    for (let x = 0; x < TILE; x++) if (row[x] === 'E' || row[x] === 'W') ctx.fillRect(x, y, 1, 1)
+  })
+  return pixelTexture(canvas)
+}
+
 function headTexture(look: Look): THREE.CanvasTexture {
   const canvas = document.createElement('canvas')
   canvas.width = TILE * TILES
@@ -158,12 +205,7 @@ function headTexture(look: Look): THREE.CanvasTexture {
   paint(2, TOP)
   paint(3, BACK)
   paint(4, BOTTOM)
-  const tex = new THREE.CanvasTexture(canvas)
-  tex.magFilter = THREE.NearestFilter
-  tex.minFilter = THREE.NearestFilter
-  tex.generateMipmaps = false
-  tex.colorSpace = THREE.SRGBColorSpace
-  return tex
+  return pixelTexture(canvas)
 }
 
 interface Parts {
@@ -171,28 +213,62 @@ interface Parts {
   torso: THREE.BufferGeometry
   arm: THREE.BufferGeometry
   leg: THREE.BufferGeometry
+  crown: THREE.BufferGeometry | null
 }
 
 const partsCache = new WeakMap<Look, Parts>()
 const bodyMaterial = new THREE.MeshLambertMaterial({ vertexColors: true })
 const flashMaterial = new THREE.MeshLambertMaterial({ color: FLASH_COLOR, emissive: FLASH_EMISSIVE })
 let sharedHead: THREE.BufferGeometry | null = null
+const noGeometry = new THREE.BufferGeometry()
+
+function torsoGeometry(look: Look): THREE.BufferGeometry {
+  const shirt = pxBox(8, 12, 4, 0, 18, 0, look.shirt)
+  if (!look.armor) return shirt
+  const plate = new THREE.Color(look.armor).multiplyScalar(0.7).getStyle()
+  return merge([
+    shirt,
+    pxBox(3, 2, 0.4, -1.5, 13, 2.1, look.skin),
+    pxBox(2, 3, 0.4, 2.5, 14.5, 2.1, look.skin),
+    pxBox(1, 1, 0.4, -3, 15.5, 2.1, look.skin),
+    pxBox(2, 1, 0.4, 1, 12.5, -2.1, look.skin),
+    pxBox(8.8, 6, 4.8, 0, 21, 0, look.armor),
+    pxBox(9, 1, 5, 0, 17.8, 0, plate),
+    pxBox(2, 2, 0.4, 0, 21, 2.5, plate),
+  ])
+}
+
+function armGeometry(look: Look): THREE.BufferGeometry {
+  if (!look.bareArms) return merge([pxBox(4, 4, 4, 0, 0, 0, look.shirt), pxBox(4, 8, 4, 0, -6, 0, look.skin)])
+  const arm = pxBox(4, 12, 4, 0, -4, 0, look.skin)
+  if (!look.armor) return arm
+  return merge([arm, pxBox(5, 3, 5, 0, 0.5, 0, look.armor), pxBox(4.4, 1, 4.4, 0, -6, 0, look.shirt)])
+}
+
+function crownGeometry(color: string): THREE.BufferGeometry {
+  const parts = [pxBox(8.6, 1.5, 8.6, 0, 8.75, 0, color)]
+  for (const x of [-3.5, 0, 3.5]) {
+    parts.push(pxBox(1.5, 2, 1.5, x, 10.5, 3.55, color), pxBox(1.5, 2, 1.5, x, 10.5, -3.55, color))
+  }
+  parts.push(pxBox(1.5, 2, 1.5, 3.55, 10.5, 0, color), pxBox(1.5, 2, 1.5, -3.55, 10.5, 0, color))
+  return merge(parts)
+}
 
 function partsFor(look: Look): Parts {
   let p = partsCache.get(look)
   if (p) return p
-  const arm = look.bareArms
-    ? pxBox(4, 12, 4, 0, -4, 0, look.skin)
-    : merge([pxBox(4, 4, 4, 0, 0, 0, look.shirt), pxBox(4, 8, 4, 0, -6, 0, look.skin)])
   const leg =
     look.shoes === look.pants
       ? pxBox(4, 12, 4, 0, -6, 0, look.pants)
       : merge([pxBox(4, 10, 4, 0, -5, 0, look.pants), pxBox(4, 2, 4, 0, -11, 0, look.shoes)])
   p = {
-    head: new THREE.MeshLambertMaterial({ map: headTexture(look) }),
-    torso: pxBox(8, 12, 4, 0, 18, 0, look.shirt),
-    arm,
+    head: look.glow
+      ? new THREE.MeshLambertMaterial({ map: headTexture(look), emissiveMap: glowTexture(look, look.glow), emissive: '#ffffff' })
+      : new THREE.MeshLambertMaterial({ map: headTexture(look) }),
+    torso: torsoGeometry(look),
+    arm: armGeometry(look),
     leg,
+    crown: look.crown ? crownGeometry(look.crown) : null,
   }
   partsCache.set(look, p)
   return p
@@ -243,6 +319,22 @@ export interface BlockyFrame {
   attack: number
 }
 
+function slamPose(t: number): { arm: number; lean: number } {
+  if (t < SLAM_RAISE) {
+    const k = t / SLAM_RAISE
+    const e = k * (2 - k)
+    return { arm: -HALF_PI - (SLAM_TOP - HALF_PI) * e, lean: -SLAM_LEAN * 0.5 * e }
+  }
+  if (t < SLAM_HIT) {
+    const k = (t - SLAM_RAISE) / (SLAM_HIT - SLAM_RAISE)
+    const e = k * k
+    return { arm: -SLAM_TOP + (SLAM_TOP - SLAM_LOW) * e, lean: -SLAM_LEAN * 0.5 + SLAM_LEAN * 1.5 * e }
+  }
+  const k = (t - SLAM_HIT) / (1 - SLAM_HIT)
+  const e = k * k * (3 - 2 * k)
+  return { arm: -SLAM_LOW - (HALF_PI - SLAM_LOW) * e, lean: SLAM_LEAN * (1 - e) }
+}
+
 function limb(parent: THREE.Object3D, x: number, y: number): { pivot: THREE.Group; mesh: THREE.Mesh } {
   const pivot = new THREE.Group()
   pivot.position.set(x * PX, y * PX, 0)
@@ -258,6 +350,7 @@ export class BlockyCharacter {
   private readonly tilt = new THREE.Group()
   private readonly body = new THREE.Group()
   private readonly head: THREE.Mesh
+  private readonly crown = new THREE.Mesh(noGeometry, bodyMaterial)
   private readonly torso: THREE.Mesh
   private readonly armL: THREE.Group
   private readonly armR: THREE.Group
@@ -279,6 +372,11 @@ export class BlockyCharacter {
   private recoil = 0
   private lastHp = Infinity
   private tinted = false
+  private slamT = -1
+  private lastAttack = -1
+  stride = STRIDE
+  swing = 1
+  heavy = false
 
   constructor(look: Look, undead: boolean) {
     this.undead = undead
@@ -291,6 +389,7 @@ export class BlockyCharacter {
     this.head.position.y = 24 * PX
     this.torso = new THREE.Mesh(undefined, bodyMaterial)
     this.body.add(this.head, this.torso)
+    this.head.add(this.crown)
     const al = limb(this.body, 6, 22)
     const ar = limb(this.body, -6, 22)
     const ll = limb(this.body, 2, 12)
@@ -315,6 +414,8 @@ export class BlockyCharacter {
     ar.geometry = p.arm
     ll.geometry = p.leg
     lr.geometry = p.leg
+    this.crown.geometry = p.crown ?? noGeometry
+    this.crown.visible = p.crown !== null
     for (let i = 0; i < this.meshes.length; i++) this.materials[i] = this.meshes[i].material as THREE.Material
     this.tinted = false
   }
@@ -337,6 +438,9 @@ export class BlockyCharacter {
     this.flash = 0
     this.recoil = 0
     this.lastHp = Infinity
+    this.slamT = -1
+    this.lastAttack = -1
+    this.body.rotation.set(0, 0, 0)
     this.setTint(false)
   }
 
@@ -359,7 +463,7 @@ export class BlockyCharacter {
     this.lastX = f.x
     this.lastZ = f.z
     this.time += dt
-    if (f.alive) this.phase += (dist * Math.PI * 2) / STRIDE
+    if (f.alive) this.phase += (dist * Math.PI * 2) / this.stride
     const target = f.alive ? 0 : 1
     this.fall += Math.sign(target - this.fall) * Math.min(Math.abs(target - this.fall), dt / FALL_TIME)
     if (f.hp < this.lastHp && this.lastHp !== Infinity) this.flash = FLASH_TIME
@@ -368,19 +472,37 @@ export class BlockyCharacter {
     if (f.fired) this.recoil = RECOIL_TIME
     else this.recoil = Math.max(0, this.recoil - dt)
     this.setTint(this.flash > 0)
+    if (this.heavy) {
+      if (f.attack >= 0 && this.lastAttack < 0) this.slamT = 0
+      else if (this.slamT >= 0) this.slamT += dt / SLAM_TIME
+      if (this.slamT > 1 || !f.alive) this.slamT = -1
+    }
+    this.lastAttack = f.attack
     this.hand.visible = f.alive
     if (!animate) return
 
     const up = 1 - this.fall * this.fall
     const moving = Math.min(1, Math.max(0, (this.speed - IDLE_BELOW) / MOVE_RAMP)) * up
     const run = Math.min(1, Math.max(0, (this.speed - WALK_SPEED) / (RUN_SPEED - WALK_SPEED)))
-    const amp = (WALK_SWING + (RUN_SWING - WALK_SWING) * run) * moving
+    const amp = (WALK_SWING + (RUN_SWING - WALK_SWING) * run) * moving * this.swing
     const s = Math.sin(this.phase)
     const breathe = Math.sin(this.time * 2.2)
     this.tilt.rotation.x = -HALF_PI * this.fall * this.fall
     this.body.position.y = up * ((1 - moving) * breathe * 0.012 + moving * Math.abs(Math.cos(this.phase)) * 0.04)
     this.legL.rotation.x = s * amp
     this.legR.rotation.x = -s * amp
+
+    if (this.heavy) {
+      const sway = ZOMBIE_ARM_SWAY * (moving * s + (1 - moving) * breathe * 0.5)
+      const slam = this.slamT >= 0 ? slamPose(this.slamT) : null
+      const arm = slam ? slam.arm : -HALF_PI
+      this.body.rotation.set((slam ? slam.lean : 0) * up, 0, s * HEAVY_ROLL * moving)
+      this.armL.rotation.set((arm + (slam ? 0 : sway)) * up, 0, 0)
+      this.armR.rotation.set((arm - (slam ? 0 : sway)) * up, 0, 0)
+      this.armL.position.z = 0
+      this.armR.position.z = 0
+      return
+    }
 
     if (this.undead) {
       let attack = 0

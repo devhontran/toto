@@ -3,7 +3,6 @@ import type { World } from '../game/World'
 import type { Assets } from '../level/assets'
 import { EXIT_ZONE, MAP_HALF_WIDTH, MAP_LENGTH } from '../level/map'
 import { REVIVE_TIME } from '../entities/Bot'
-import { ZOMBIE_ATTACK } from '../entities/Zombie'
 import { HumanView, ZombieView } from './characters'
 import { BOT_LOOKS, PLAYER_LOOK } from './blocky'
 import { buildHouses, buildTrees } from './town'
@@ -13,8 +12,6 @@ const TRACER_Y = 1.25
 const TRACER_WIDTH = 0.04
 const TRACER_NEAR_SKIP = 1.5
 const ATTACK_WINDOW = 0.3
-const CULL_Y = 0.9
-const CULL_RADIUS = 1.5
 const GROUND_MARGIN = 160
 const FOG_NEAR = 20
 const FOG_FAR = 46
@@ -169,10 +166,10 @@ export class SceneView {
         this.scene.add(view.body.root)
         this.zombies.set(z.id, view)
       }
-      this.sphere.center.set(z.x, CULL_Y, z.z)
-      this.sphere.radius = CULL_RADIUS
+      this.sphere.center.set(z.x, view.cullY, z.z)
+      this.sphere.radius = view.cullRadius
       const onScreen = this.frustum.intersectsSphere(this.sphere)
-      const since = ZOMBIE_ATTACK.cooldown - z.attackCooldown
+      const since = z.attack.cooldown - z.attackCooldown
       const f = view.frame
       f.x = z.x
       f.z = z.z
