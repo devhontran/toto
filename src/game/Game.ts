@@ -78,7 +78,7 @@ export class Game {
     this.rig.place(p.x, p.z, this.input.yaw, this.input.pitch)
     this.viewmodel.update(p.weapon.def.id, p.weapon.mag, p.alive, p.x, p.z, dt)
     this.view.sync(this.world, dt, this.camera)
-    this.hud.update(this.world, this.fps, this.input.locked)
+    this.hud.update(this.world, this.fps, this.input.locked, this.input.yaw, this.input.mapHeld, dt)
     this.renderer.render(this.view.scene, this.camera)
   }
 
