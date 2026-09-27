@@ -2,11 +2,12 @@ import * as THREE from 'three'
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { World } from '../game/World'
 import type { Assets } from '../level/assets'
-import { EXIT_ZONE, HOUSE_HEIGHT, HOUSES, MAP_HALF_WIDTH, MAP_LENGTH } from '../level/map'
+import { EXIT_ZONE, MAP_HALF_WIDTH, MAP_LENGTH } from '../level/map'
 import { REVIVE_TIME } from '../entities/Bot'
 import { ZOMBIE_ATTACK } from '../entities/Zombie'
 import { createRigTemplate, type RigTemplate } from './rig'
 import { HUMAN_CLIPS, HumanView, ZOMBIE_CLIPS, ZombieView } from './characters'
+import { buildHouses, buildTrees } from './town'
 
 const MAX_TRACERS = 128
 const TRACER_Y = 1.1
@@ -24,7 +25,6 @@ const COLORS = {
   background: '#0b0b10',
   ground: '#2b2f27',
   road: '#3a3a3e',
-  house: '#8a6f55',
   tracer: '#fff1a8',
   exit: '#39ff88',
 }
@@ -98,13 +98,8 @@ export class SceneView {
     road.position.set(0, 0.01, -MAP_LENGTH / 2)
     this.scene.add(road)
 
-
-    const houseMat = new THREE.MeshStandardMaterial({ color: COLORS.house })
-    for (const h of HOUSES) {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(h.hw * 2, HOUSE_HEIGHT, h.hd * 2), houseMat)
-      mesh.position.set(h.x, HOUSE_HEIGHT / 2, h.z)
-      this.scene.add(mesh)
-    }
+    this.scene.add(buildHouses(assets.house))
+    this.scene.add(buildTrees(assets.tree))
 
     const exit = new THREE.Mesh(
       new THREE.RingGeometry(EXIT_ZONE.r - 0.4, EXIT_ZONE.r, 48).rotateX(-Math.PI / 2),
