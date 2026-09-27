@@ -3,13 +3,7 @@
 All assets below are CC0 (public domain, no attribution legally required).
 License was verified on each source page at time of download (2026-09-27).
 
-## Kenney (kenney.nl) — CC0
-
-Pack: **Car Kit**
-Source: https://kenney.nl/assets/car-kit
-License: Creative Commons CC0 (stated on pack page)
-Files used:
-- `van.glb` — from `van.glb`
+No third-party model files currently ship; `van.glb` (Kenney Car Kit, CC0) was removed when cars became procedural voxels.
 
 ## Not obtained (optional items)
 
