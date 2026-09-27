@@ -52,6 +52,14 @@ const DARK_OAK_SEAM = 0x2a1b0b
 const STONE = [0x8a8a8a, 0x7a7a7a, 0x9e9e9e, 0x6f6f6f, 0x858585]
 const LEAVES = [0x3f7a2a, 0x4b8c32, 0x356b23, 0x58a03c, 0x2d5c1d]
 const GRAVEL = [0x8a8380, 0x7a7472, 0x9d9795, 0x6b6563, 0xa8a2a0, 0x5d5856]
+const BRICK = [0x9a4a3a, 0x8c4032, 0xa65444, 0x7f3a2d, 0x93493a]
+const BRICK_MORTAR = 0xa39d94
+const STONE_BRICK = [0x7d7d7d, 0x747474, 0x868686, 0x6c6c6c]
+const WHITE = [0xf2f2f2, 0xe8e8e8, 0xfafafa, 0xe2e2e2]
+const QUARTZ = [0xeee9e2, 0xe7e1d8, 0xf3efe9]
+const IRON = [0xdcdcdc, 0xd2d2d2, 0xe6e6e6]
+const GLOW = [0xf5d27a, 0xe9b54f, 0xfff0b0, 0xc98f3a, 0xffe08a]
+const WATER = [0x3f6fd8, 0x3a66cc, 0x4677e0, 0x335cb8]
 
 function drawDirt(paint: Paint, rng: () => number): void {
   for (let y = 0; y < SIZE; y++)
@@ -161,7 +169,118 @@ export function makeTextures() {
   })
   const poppy = flowerTexture(23, 0xd82b1f, 0x9e1a12, 0x2b2b12)
   const dandelion = flowerTexture(24, 0xf7d82c, 0xd9a91a, 0xf7e98a)
-  return { grassTop, grassSide, dirt, planks, darkPlanks, logSide, logTop, cobble, glass, leaves, gravel, torch, poppy, dandelion }
+  const bricks = pixelTexture(25, (paint, rng) => {
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const row = y >> 2
+        const joint = (x + (row % 2) * 4) % 8 === 0
+        paint(x, y, y % 4 === 3 || joint ? BRICK_MORTAR : pick(rng, BRICK))
+      }
+    }
+  })
+  const stoneBricks = pixelTexture(26, (paint, rng) => {
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const row = y >> 3
+        const joint = (x + row * 8) % 16 === 15
+        const edge = y % 8 === 7 || joint
+        paint(x, y, edge ? 0x565656 : y % 8 === 0 ? 0x959595 : pick(rng, STONE_BRICK))
+      }
+    }
+  })
+  const concrete = pixelTexture(27, (paint, rng) => {
+    for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) paint(x, y, rng() < 0.85 ? WHITE[0] : pick(rng, WHITE))
+  })
+  const smoothStone = pixelTexture(28, (paint, rng) => {
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const edge = x === 0 || y === 0 || x === 15 || y === 15
+        paint(x, y, edge ? 0x8c8c8c : rng() < 0.9 ? 0xa8a8a8 : 0x9e9e9e)
+      }
+    }
+  })
+  const quartz = pixelTexture(29, (paint, rng) => {
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const edge = x === 0 || y === 0 || x === 15 || y === 15
+        paint(x, y, edge ? 0xd8d0c4 : pick(rng, QUARTZ))
+      }
+    }
+  })
+  const iron = pixelTexture(30, (paint, rng) => {
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const hi = x === 0 || y === 0
+        const lo = x === 15 || y === 15
+        paint(x, y, hi ? 0xf4f4f4 : lo ? 0xa8a8a8 : pick(rng, IRON))
+      }
+    }
+  })
+  const ironBars = pixelTexture(31, (paint) => {
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const bar = x % 4 === 1 || x % 4 === 2
+        const rail = y === 0 || y === 15
+        if (bar || rail) paint(x, y, x % 4 === 1 || rail ? 0x9a9a9a : 0x6a6a6a)
+        else paint(x, y, 0, 0)
+      }
+    }
+  })
+  const wool = pixelTexture(32, (paint, rng) => {
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const fiber = (x * 3 + y * 5 + Math.floor(rng() * 3)) % 7 === 0
+        paint(x, y, fiber ? 0xd6d6d6 : rng() < 0.3 ? 0xeaeaea : 0xf6f6f6)
+      }
+    }
+  })
+  const glowstone = pixelTexture(33, (paint, rng) => {
+    for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) paint(x, y, pick(rng, GLOW))
+  })
+  const water = pixelTexture(34, (paint, rng) => {
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const ripple = (x + y * 2) % 9 === 0 && rng() < 0.7
+        paint(x, y, ripple ? 0x7aa6f0 : pick(rng, WATER))
+      }
+    }
+  })
+  const windowGlass = pixelTexture(35, (paint, rng) => {
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const frame = x === 0 || y === 0 || x === 15 || y === 15
+        const streak = (x + y === 9 || x + y === 10 || x + y === 19) && x > 2 && x < 13
+        paint(x, y, frame ? 0xcfd8dc : streak ? 0x9fc3dc : rng() < 0.2 ? 0x2f4a66 : 0x28405a)
+      }
+    }
+  })
+  return {
+    grassTop,
+    grassSide,
+    dirt,
+    planks,
+    darkPlanks,
+    logSide,
+    logTop,
+    cobble,
+    glass,
+    leaves,
+    gravel,
+    torch,
+    poppy,
+    dandelion,
+    bricks,
+    stoneBricks,
+    concrete,
+    smoothStone,
+    quartz,
+    iron,
+    ironBars,
+    wool,
+    glowstone,
+    water,
+    windowGlass,
+  }
 }
 
 function flowerTexture(seed: number, petal: number, shade: number, core: number): THREE.CanvasTexture {
@@ -185,7 +304,7 @@ function flowerTexture(seed: number, petal: number, shade: number, core: number)
 
 export type Textures = ReturnType<typeof makeTextures>
 
-function planarUV(geo: THREE.BufferGeometry): THREE.BufferGeometry {
+export function planarUV(geo: THREE.BufferGeometry): THREE.BufferGeometry {
   const pos = geo.getAttribute('position')
   const nor = geo.getAttribute('normal')
   const uv = geo.getAttribute('uv')
@@ -230,6 +349,10 @@ function paneGeometry(): THREE.BufferGeometry {
   return part(1, 1, 0.125, 0, 0, 0)
 }
 
+function postGeometry(): THREE.BufferGeometry {
+  return part(0.25, 1, 0.25, 0, 0, 0)
+}
+
 function torchGeometry(): THREE.BufferGeometry {
   return part(0.125, 0.625, 0.125, 0, -0.1875, 0)
 }
@@ -253,6 +376,22 @@ export type BlockType =
   | 'poppy'
   | 'dandelion'
   | 'path'
+  | 'bricks'
+  | 'stoneBricks'
+  | 'concrete'
+  | 'smoothStone'
+  | 'stoneSlab'
+  | 'quartz'
+  | 'iron'
+  | 'ironStairs'
+  | 'ironBars'
+  | 'fence'
+  | 'woolSlab'
+  | 'glow'
+  | 'light'
+  | 'marking'
+  | 'water'
+  | 'window'
 
 export interface Rotation {
   x?: number
@@ -260,7 +399,16 @@ export interface Rotation {
   z?: number
 }
 
+export interface Extra {
+  sx?: number
+  sy?: number
+  sz?: number
+  color?: number
+}
+
 const PATH_HEIGHT = 0.0625
+const MARKING_HEIGHT = 0.03
+const WATER_HEIGHT = 0.12
 
 function lambert(map: THREE.Texture, extra: THREE.MeshLambertMaterialParameters = {}): THREE.MeshLambertMaterial {
   return new THREE.MeshLambertMaterial({ map, ...extra })
@@ -281,41 +429,136 @@ function blockDefs(tex: Textures): Record<BlockType, () => [THREE.BufferGeometry
     poppy: () => [crossGeometry(), lambert(tex.poppy, flower)],
     dandelion: () => [crossGeometry(), lambert(tex.dandelion, flower)],
     path: () => [slabGeometry(PATH_HEIGHT), lambert(tex.dirt)],
+    bricks: () => [new THREE.BoxGeometry(1, 1, 1), lambert(tex.bricks)],
+    stoneBricks: () => [new THREE.BoxGeometry(1, 1, 1), lambert(tex.stoneBricks)],
+    concrete: () => [new THREE.BoxGeometry(1, 1, 1), lambert(tex.concrete)],
+    smoothStone: () => [new THREE.BoxGeometry(1, 1, 1), lambert(tex.smoothStone)],
+    stoneSlab: () => [slabGeometry(0.5), lambert(tex.smoothStone)],
+    quartz: () => [new THREE.BoxGeometry(1, 1, 1), lambert(tex.quartz)],
+    iron: () => [new THREE.BoxGeometry(1, 1, 1), lambert(tex.iron)],
+    ironStairs: () => [stairGeometry(), lambert(tex.iron)],
+    ironBars: () => [paneGeometry(), lambert(tex.ironBars, { alphaTest: 0.5, side: THREE.DoubleSide })],
+    fence: () => [postGeometry(), lambert(tex.darkPlanks)],
+    woolSlab: () => [slabGeometry(0.5), lambert(tex.wool)],
+    glow: () => [new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ map: tex.glowstone })],
+    light: () => [new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial()],
+    marking: () => [slabGeometry(MARKING_HEIGHT), lambert(tex.concrete)],
+    water: () => [slabGeometry(WATER_HEIGHT), lambert(tex.water, { transparent: true, opacity: 0.85 })],
+    window: () => [paneGeometry(), lambert(tex.windowGlass)],
   }
 }
 
-export class VoxelBatcher {
-  readonly textures = makeTextures()
-  private readonly matrices = new Map<BlockType, THREE.Matrix4[]>()
-  private readonly dummy = new THREE.Object3D()
+interface Batch {
+  type: BlockType
+  cx: number
+  cz: number
+  matrices: THREE.Matrix4[]
+  colors: number[] | null
+}
 
-  addAt(type: BlockType, x: number, y: number, z: number, rot: Rotation = {}): void {
-    this.dummy.position.set(x, y, z)
-    this.dummy.rotation.set(rot.x ?? 0, rot.y ?? 0, rot.z ?? 0)
-    this.dummy.updateMatrix()
-    let list = this.matrices.get(type)
-    if (!list) {
-      list = []
-      this.matrices.set(type, list)
-    }
-    list.push(this.dummy.matrix.clone())
+export interface BatcherOptions {
+  textures?: Textures
+  chunk?: number
+}
+
+const WHITE_TINT = 0xffffff
+
+export class VoxelBatcher {
+  readonly textures: Textures
+  private readonly chunk: number
+  private readonly batches = new Map<string, Batch>()
+  private readonly dummy = new THREE.Object3D()
+  private frame: THREE.Matrix4 | null = null
+
+  constructor(options: BatcherOptions = {}) {
+    this.textures = options.textures ?? makeTextures()
+    this.chunk = options.chunk ?? 0
   }
 
-  addBlock(type: BlockType, x: number, y: number, z: number, rot: Rotation = {}): void {
-    this.addAt(type, x + 0.5, y + 0.5, z + 0.5, rot)
+  setFrame(frame: THREE.Matrix4 | null): void {
+    this.frame = frame
+  }
+
+  addAt(type: BlockType, x: number, y: number, z: number, rot: Rotation = {}, extra: Extra = {}): void {
+    this.dummy.position.set(x, y, z)
+    this.dummy.rotation.set(rot.x ?? 0, rot.y ?? 0, rot.z ?? 0)
+    this.dummy.scale.set(extra.sx ?? 1, extra.sy ?? 1, extra.sz ?? 1)
+    this.dummy.updateMatrix()
+    const m = this.dummy.matrix.clone()
+    if (this.frame) m.premultiply(this.frame)
+    const cx = this.chunk ? Math.floor(m.elements[12] / this.chunk) : 0
+    const cz = this.chunk ? Math.floor(m.elements[14] / this.chunk) : 0
+    const key = `${type}|${cx}|${cz}`
+    let batch = this.batches.get(key)
+    if (!batch) {
+      batch = { type, cx, cz, matrices: [], colors: null }
+      this.batches.set(key, batch)
+    }
+    if (extra.color !== undefined && !batch.colors) batch.colors = batch.matrices.map(() => WHITE_TINT)
+    batch.matrices.push(m)
+    batch.colors?.push(extra.color ?? WHITE_TINT)
+  }
+
+  addBlock(type: BlockType, x: number, y: number, z: number, rot: Rotation = {}, extra: Extra = {}): void {
+    this.addAt(type, x + 0.5, y + 0.5, z + 0.5, rot, extra)
   }
 
   build(): THREE.Group {
     const group = new THREE.Group()
     const defs = blockDefs(this.textures)
-    for (const [type, list] of this.matrices) {
-      const [geometry, material] = defs[type]()
-      const mesh = new THREE.InstancedMesh(geometry, material, list.length)
-      list.forEach((m, i) => mesh.setMatrixAt(i, m))
+    const shared = new Map<BlockType, [THREE.BufferGeometry, THREE.Material | THREE.Material[]]>()
+    const chunks = new Map<string, THREE.Group>()
+    const color = new THREE.Color()
+    for (const batch of this.batches.values()) {
+      let def = shared.get(batch.type)
+      if (!def) {
+        def = defs[batch.type]()
+        shared.set(batch.type, def)
+      }
+      const mesh = new THREE.InstancedMesh(def[0], def[1], batch.matrices.length)
+      batch.matrices.forEach((m, i) => mesh.setMatrixAt(i, m))
+      batch.colors?.forEach((c, i) => mesh.setColorAt(i, color.setHex(c)))
       mesh.computeBoundingSphere()
-      mesh.name = type
-      group.add(mesh)
+      mesh.name = batch.type
+      if (!this.chunk) {
+        group.add(mesh)
+        continue
+      }
+      const chunkKey = `${batch.cx}|${batch.cz}`
+      let chunk = chunks.get(chunkKey)
+      if (!chunk) {
+        chunk = new THREE.Group()
+        chunk.userData.x = (batch.cx + 0.5) * this.chunk
+        chunk.userData.z = (batch.cz + 0.5) * this.chunk
+        chunks.set(chunkKey, chunk)
+        group.add(chunk)
+      }
+      chunk.add(mesh)
     }
     return group
   }
+}
+
+export interface FlatRect {
+  x: number
+  z: number
+  hw: number
+  hd: number
+}
+
+export function flatSurface(
+  rects: readonly FlatRect[],
+  map: THREE.Texture,
+  y: number,
+  params: THREE.MeshLambertMaterialParameters = {},
+  thickness = 0,
+): THREE.Mesh {
+  const parts = rects.map((r) =>
+    thickness > 0
+      ? planarUV(new THREE.BoxGeometry(r.hw * 2, thickness, r.hd * 2).translate(r.x, y - thickness / 2, r.z))
+      : planarUV(new THREE.PlaneGeometry(r.hw * 2, r.hd * 2).rotateX(-Math.PI / 2).translate(r.x, y, r.z)),
+  )
+  const mesh = new THREE.Mesh(mergeGeometries(parts), new THREE.MeshLambertMaterial({ map, ...params }))
+  mesh.matrixAutoUpdate = false
+  return mesh
 }
