@@ -1,19 +1,7 @@
-import * as THREE from 'three'
 import type { Box } from '../systems/collision'
-import { HOUSES, MAP_HALF_WIDTH, MAP_LENGTH } from '../level/map'
-import { lcg, VoxelBatcher, type BlockType, type Textures } from './voxel'
+import { lcg, type BlockType, type VoxelBatcher } from './voxel'
 
-const GROUND_MARGIN = 160
-const ROAD_HALF = 6
-const FLOOR_HEIGHT = 4
-const TREE_COUNT = 50
-const TREE_SEED = 1337
-const TREE_MIN_X = 9
-const TREE_SPACING = 6
-const TREE_HOUSE_CLEAR = 4
-const TREE_LEAF_RADIUS = 2.5
-const FLOWER_COUNT = 140
-const FLOWER_SEED = 4242
+export const FLOOR_HEIGHT = 4
 const TORCH_Y = 2.6
 const TORCH_OFFSET = 0.5625
 
@@ -49,38 +37,6 @@ export interface HouseSpec {
   style?: HouseStyleId
   path?: number
   seed?: number
-}
-
-function tiled(tex: THREE.Texture, w: number, l: number): THREE.Texture {
-  const t = tex.clone()
-  t.repeat.set(w, l)
-  t.needsUpdate = true
-  return t
-}
-
-export function groundPlane(tex: Textures, width: number, length: number, x: number, z: number): THREE.Mesh {
-  const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(width, length).rotateX(-Math.PI / 2),
-    new THREE.MeshLambertMaterial({ map: tiled(tex.grassTop, width, length) }),
-  )
-  mesh.position.set(x, 0, z)
-  return mesh
-}
-
-export function roadStrip(tex: Textures, width: number, length: number, x: number, z: number, alongX = false): THREE.Mesh {
-  const w = alongX ? length : width
-  const l = alongX ? width : length
-  const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(w, l).rotateX(-Math.PI / 2),
-    new THREE.MeshLambertMaterial({
-      map: tiled(tex.gravel, w, l),
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
-    }),
-  )
-  mesh.position.set(x, 0.01, z)
-  return mesh
 }
 
 function windowAt(t: number, len: number): boolean {
@@ -195,58 +151,4 @@ export function oakTree(v: VoxelBatcher, x: number, z: number, height: number, r
       }
     }
   }
-}
-
-function nearHouse(cx: number, cz: number, clear: number): boolean {
-  return HOUSES.some((h) => Math.abs(cx - h.x) < h.hw + clear && Math.abs(cz - h.z) < h.hd + clear)
-}
-
-function streetTrees(v: VoxelBatcher): { x: number; z: number }[] {
-  const rng = lcg(TREE_SEED)
-  const trunks: { x: number; z: number }[] = []
-  const span = MAP_HALF_WIDTH - TREE_MIN_X
-  let guard = 0
-  while (trunks.length < TREE_COUNT && guard++ < TREE_COUNT * 100) {
-    const off = TREE_MIN_X + Math.floor(rng() * span)
-    const x = rng() < 0.5 ? off : -off - 1
-    const z = -1 - Math.floor(rng() * (MAP_LENGTH - 1))
-    if (nearHouse(x + 0.5, z + 0.5, TREE_HOUSE_CLEAR + TREE_LEAF_RADIUS)) continue
-    if (trunks.some((t) => Math.max(Math.abs(t.x - x), Math.abs(t.z - z)) < TREE_SPACING)) continue
-    trunks.push({ x, z })
-    oakTree(v, x, z, 4 + Math.floor(rng() * 3), rng)
-  }
-  return trunks
-}
-
-function streetFlowers(v: VoxelBatcher, trunks: { x: number; z: number }[]): void {
-  const rng = lcg(FLOWER_SEED)
-  const used = new Set(trunks.map((t) => `${t.x},${t.z}`))
-  let placed = 0
-  let guard = 0
-  while (placed < FLOWER_COUNT && guard++ < FLOWER_COUNT * 20) {
-    const off = ROAD_HALF + 1 + Math.floor(rng() * (MAP_HALF_WIDTH - ROAD_HALF - 1))
-    const x = rng() < 0.5 ? off : -off - 1
-    const z = -1 - Math.floor(rng() * (MAP_LENGTH - 1))
-    const key = `${x},${z}`
-    if (used.has(key) || nearHouse(x + 0.5, z + 0.5, 2)) continue
-    used.add(key)
-    v.addBlock(rng() < 0.6 ? 'poppy' : 'dandelion', x, 0, z)
-    placed++
-  }
-}
-
-export function buildTown(): THREE.Group {
-  const v = new VoxelBatcher()
-  HOUSES.forEach((box, i) => {
-    const facing: Facing = box.x < 0 ? '+x' : '-x'
-    buildHouse(v, { box, facing, path: Math.abs(box.x) - box.hw - ROAD_HALF, seed: TREE_SEED + i })
-  })
-  streetFlowers(v, streetTrees(v))
-  const group = v.build()
-  const length = MAP_LENGTH + GROUND_MARGIN
-  group.add(
-    groundPlane(v.textures, MAP_HALF_WIDTH * 2 + GROUND_MARGIN, length, 0, -MAP_LENGTH / 2),
-    roadStrip(v.textures, ROAD_HALF * 2, length, 0, -MAP_LENGTH / 2),
-  )
-  return group
 }
