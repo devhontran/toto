@@ -14,9 +14,12 @@ const TRACER_WIDTH = 0.12
 const ATTACK_WINDOW = 0.3
 const CULL_Y = 0.9
 const CULL_RADIUS = 1.5
+const GROUND_MARGIN = 160
+const FOG_NEAR = 25
+const FOG_FAR = 60
 
 const COLORS = {
-  background: '#0b0b10',
+  background: '#6f7f96',
   ground: '#2b2f27',
   road: '#3a3a3e',
   tracer: '#fff1a8',
@@ -37,24 +40,25 @@ export class SceneView {
   private readonly projView = new THREE.Matrix4()
   private readonly sphere = new THREE.Sphere()
   private world: World | null = null
+  private firstPerson = false
 
   constructor(assets: Assets) {
     this.scene.background = new THREE.Color(COLORS.background)
-    this.scene.fog = new THREE.Fog(COLORS.background, 28, 55)
+    this.scene.fog = new THREE.Fog(COLORS.background, FOG_NEAR, FOG_FAR)
     this.scene.add(new THREE.HemisphereLight('#dfe6ff', '#4a4a3a', 1.8))
     const sun = new THREE.DirectionalLight('#fff2dd', 2.6)
     sun.position.set(10, 25, 5)
     this.scene.add(sun)
 
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(MAP_HALF_WIDTH * 2 + 20, MAP_LENGTH + 40).rotateX(-Math.PI / 2),
+      new THREE.PlaneGeometry(MAP_HALF_WIDTH * 2 + GROUND_MARGIN, MAP_LENGTH + GROUND_MARGIN).rotateX(-Math.PI / 2),
       new THREE.MeshStandardMaterial({ color: COLORS.ground }),
     )
     ground.position.z = -MAP_LENGTH / 2
     this.scene.add(ground)
 
     const road = new THREE.Mesh(
-      new THREE.PlaneGeometry(12, MAP_LENGTH).rotateX(-Math.PI / 2),
+      new THREE.PlaneGeometry(12, MAP_LENGTH + GROUND_MARGIN).rotateX(-Math.PI / 2),
       new THREE.MeshStandardMaterial({ color: COLORS.road }),
     )
     road.position.set(0, 0.01, -MAP_LENGTH / 2)
@@ -101,6 +105,7 @@ export class SceneView {
     if (world !== this.world) this.reset(world)
     const p = world.player
     this.player.sync(p, p.weapon.def.id, dt)
+    this.player.body.root.visible = !this.firstPerson
     for (let i = 0; i < this.bots.length; i++) {
       const b = world.bots[i]
       const view = this.bots[i]
@@ -139,6 +144,11 @@ export class SceneView {
     }
     this.tracers.count = t
     this.tracers.instanceMatrix.needsUpdate = true
+  }
+
+  setFirstPerson(on: boolean): void {
+    this.firstPerson = on
+    this.player.body.root.visible = !on
   }
 
   private syncZombies(world: World, dt: number, camera: THREE.Camera): void {
