@@ -2,7 +2,7 @@ import { WEAPONS, WeaponState } from '../systems/weapons'
 
 export const BOT_RADIUS = 0.4
 export const BOT_SPEED = 5.5
-export const BOT_ADVANCE_SPEED = 3.5
+export const BOT_ADVANCE_SPEED = 4.5
 export const BOT_MAX_HP = 100
 export const BOT_ENGAGE_RANGE = 15
 export const BOT_HOLD_RANGE = 10

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { decideBot, updateRevive } from './botBrain'
-import { BOT_LANES, REVIVE_HP } from '../entities/Bot'
+import { BOT_ADVANCE_SPEED, BOT_LANES, REVIVE_HP } from '../entities/Bot'
 import { CITY } from '../level/city'
 import { pointAtDistance, routeLength } from '../level/route'
 
@@ -21,7 +21,7 @@ describe('decideBot', () => {
   it('advances up the first street (toward -Z) when no zombies are near', () => {
     const decision = decideBot({ x: S.x, z: S.z, slot: 1 }, [mate(S.x, S.z)], [], [], rng)
     expect(decision.moveZ).toBeLessThan(0)
-    expect(decision.speed).toBe(3.5)
+    expect(decision.speed).toBe(BOT_ADVANCE_SPEED)
   })
 
   it('steers toward its lateral lane off the route centerline', () => {
@@ -72,7 +72,7 @@ describe('decideBot', () => {
     const len = Math.hypot(to.x, to.z)
     expect(decision.moveX).toBeCloseTo(to.x / len, 5)
     expect(decision.moveZ).toBeCloseTo(to.z / len, 5)
-    expect(decision.speed).toBe(3.5)
+    expect(decision.speed).toBe(BOT_ADVANCE_SPEED)
   })
 
   it('switches to the board zone just before the gate', () => {
