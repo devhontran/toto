@@ -94,7 +94,7 @@ body {
   width: 20px;
   height: 20px;
   background: #ffd23f;
-  clip-path: polygon(50% 0, 100% 80%, 50% 60%, 0 80%);
+  clip-path: polygon(50% 0, 100% 50%, 68% 50%, 68% 100%, 32% 100%, 32% 50%, 0 50%);
   filter: drop-shadow(0 0 1px #000);
 }
 

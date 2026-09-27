@@ -25,6 +25,7 @@ export const MAP_COLORS = {
   zombie: '#ff3b30',
   boss: '#ff1a1a',
   plane: '#ffffff',
+  board: '#39ff88',
 }
 
 export const CITY_FRAME: MapFrame = {
@@ -73,6 +74,11 @@ export function drawCity(ctx: CanvasRenderingContext2D, frame: MapFrame, scale: 
   fillBox(ctx, a.tower)
   ctx.fillStyle = MAP_COLORS.airportEdge
   for (const f of a.fences) fillBox(ctx, { ...f, hw: Math.max(f.hw, edge), hd: Math.max(f.hd, edge) })
+  ctx.beginPath()
+  ctx.arc(a.boardZone.x, a.boardZone.z, a.boardZone.r, 0, Math.PI * 2)
+  ctx.lineWidth = 2 / scale
+  ctx.strokeStyle = MAP_COLORS.board
+  ctx.stroke()
   ctx.restore()
 }
 
