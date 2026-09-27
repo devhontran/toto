@@ -96,6 +96,10 @@ body {
   opacity: 0.85;
 }
 
+.hud__bot[hidden] {
+  display: none;
+}
+
 .hud__bot-label {
   width: 20px;
 }

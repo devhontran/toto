@@ -125,8 +125,8 @@ export class SceneView {
 
   sync(world: World): void {
     const p = world.player
-    this.player.position.set(p.x, 0, p.z)
-    this.player.rotation.set(0, p.angle, p.alive ? 0 : Math.PI / 2)
+    this.player.position.set(p.x, p.alive ? 0 : BODY_RADIUS, p.z)
+    this.player.rotation.set(p.alive ? 0 : -Math.PI / 2, p.angle, 0)
 
     for (let i = 0; i < this.bots.length; i++) {
       const b = world.bots[i]
