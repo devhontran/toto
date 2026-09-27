@@ -5,13 +5,6 @@ License was verified on each source page at time of download (2026-09-27).
 
 ## Kenney (kenney.nl) — CC0
 
-Pack: **City Kit (Suburban)**
-Source: https://kenney.nl/assets/city-kit-suburban
-License: Creative Commons CC0 (stated on pack page)
-Files used:
-- `house.glb` — from `building-type-n.glb`
-- `tree.glb` — from `tree-large.glb`
-
 Pack: **Car Kit**
 Source: https://kenney.nl/assets/car-kit
 License: Creative Commons CC0 (stated on pack page)

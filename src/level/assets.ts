@@ -4,8 +4,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 const BASE = `${import.meta.env.BASE_URL}models/`
 
 const FILES = {
-  house: 'house.glb',
-  tree: 'tree.glb',
+  van: 'van.glb',
 } as const
 
 export type AssetName = keyof typeof FILES
