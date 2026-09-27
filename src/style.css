@@ -114,6 +114,35 @@ body {
   filter: grayscale(1);
 }
 
+.hud__crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  background:
+    linear-gradient(#fff, #fff) center / 2px 100% no-repeat,
+    linear-gradient(#fff, #fff) center / 100% 2px no-repeat;
+  filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.9));
+  opacity: 0.85;
+}
+
+.hud__hint {
+  position: absolute;
+  top: calc(50% + 32px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  font-size: 18px;
+  background: rgb(0 0 0 / 0.5);
+  border-radius: 6px;
+}
+
+.hud__hint[hidden] {
+  display: none;
+}
+
 .hud__downed {
   position: absolute;
   left: 50%;

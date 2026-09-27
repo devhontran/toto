@@ -27,6 +27,7 @@ export class Hud {
   private readonly botFills: HTMLElement[]
   private readonly botRows: HTMLElement[]
   private readonly downed: HTMLElement
+  private readonly hint: HTMLElement
   private readonly showFps: boolean
 
   constructor(parent: HTMLElement, onRestart: () => void, showFps: boolean) {
@@ -35,6 +36,8 @@ export class Hud {
     this.root.className = 'hud'
     this.root.innerHTML = `
       <div class="hud__fps" data-fps></div>
+      <div class="hud__crosshair"></div>
+      <div class="hud__hint" data-hint>Click để chơi</div>
       <div class="hud__top">
         <span data-kills></span>
         <span data-distance></span>
@@ -84,11 +87,12 @@ export class Hud {
     this.botFills = [0, 1, 2].map((i) => q(`[data-bot-fill="${i}"]`))
     this.botRows = [0, 1, 2].map((i) => q(`[data-bot="${i}"]`))
     this.downed = q('[data-downed]')
+    this.hint = q('[data-hint]')
     this.fps.hidden = !showFps
     q('[data-restart]').addEventListener('click', onRestart)
   }
 
-  update(world: World, fps: number): void {
+  update(world: World, fps: number, locked: boolean): void {
     const p = world.player
     const w = p.weapon
     this.hpFill.style.width = `${(p.hp / PLAYER_MAX_HP) * 100}%`
@@ -113,6 +117,7 @@ export class Hud {
     this.downed.hidden = p.alive
 
     const ended = world.status !== 'playing'
+    this.hint.hidden = locked || ended
     this.end.hidden = !ended
     if (ended) {
       setText(this.endTitle, world.status === 'won' ? 'Đã thoát!' : 'Bạn đã gục')

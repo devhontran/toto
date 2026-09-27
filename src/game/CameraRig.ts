@@ -1,30 +1,17 @@
-import * as THREE from 'three'
+import type * as THREE from 'three'
 
-const OFFSET = new THREE.Vector3(0, 15, 8.5)
-const LOOK_AHEAD = -3
-const FOLLOW_SHARPNESS = 8
+const EYE_HEIGHT = 1.6
 
 export class CameraRig {
   private readonly camera: THREE.PerspectiveCamera
-  private readonly desired = new THREE.Vector3()
 
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera
+    this.camera.rotation.order = 'YXZ'
   }
 
-  snap(x: number, z: number): void {
-    this.camera.position.set(x + OFFSET.x, OFFSET.y, z + OFFSET.z)
-    this.look()
-  }
-
-  update(x: number, z: number, dt: number): void {
-    this.desired.set(x + OFFSET.x, OFFSET.y, z + OFFSET.z)
-    this.camera.position.lerp(this.desired, 1 - Math.exp(-FOLLOW_SHARPNESS * dt))
-    this.look()
-  }
-
-  private look(): void {
-    const p = this.camera.position
-    this.camera.lookAt(p.x - OFFSET.x, 0, p.z - OFFSET.z + LOOK_AHEAD)
+  place(x: number, z: number, yaw: number, pitch: number): void {
+    this.camera.position.set(x, EYE_HEIGHT, z)
+    this.camera.rotation.set(pitch, yaw + Math.PI, 0)
   }
 }

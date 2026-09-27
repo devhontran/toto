@@ -4,27 +4,25 @@ import { FixedStep } from './fixedStep'
 import { InputState, bindInput } from './Input'
 import { CameraRig } from './CameraRig'
 import { SceneView } from '../render/SceneView'
+import { Viewmodel } from '../render/viewmodel'
 import { Hud } from '../ui/hud'
 import type { Assets } from '../level/assets'
 
 const STEP = 1 / 60
 const MAX_FRAME = 0.25
-const AIM_HEIGHT = 1
+const AIM_DISTANCE = 20
 
 export class Game {
   private readonly renderer: THREE.WebGLRenderer
-  private readonly camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200)
+  private readonly camera = new THREE.PerspectiveCamera(75, 1, 0.05, 200)
   private readonly rig: CameraRig
   private readonly view: SceneView
+  private readonly viewmodel = new Viewmodel()
   private readonly input = new InputState()
   private readonly unbindInput: () => void
   private readonly hud: Hud
   private readonly stepper = new FixedStep(STEP, MAX_FRAME)
   private readonly timer = new THREE.Timer()
-  private readonly raycaster = new THREE.Raycaster()
-  private readonly aimPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -AIM_HEIGHT)
-  private readonly ndc = new THREE.Vector2()
-  private readonly aim = new THREE.Vector3()
   private readonly debug: boolean
   private world: World
   private fps = 60
@@ -34,11 +32,14 @@ export class Game {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.view = new SceneView(assets)
+    this.view.setFirstPerson(true)
+    this.view.scene.add(this.camera)
+    this.camera.add(this.viewmodel.root)
     this.rig = new CameraRig(this.camera)
     this.unbindInput = bindInput(this.input, canvas)
     this.hud = new Hud(document.body, () => this.restart(), this.debug)
     this.world = this.createWorld()
-    this.rig.snap(this.world.player.x, this.world.player.z)
+    this.snapCamera()
     this.resize()
     window.addEventListener('resize', this.resize)
   }
@@ -54,27 +55,31 @@ export class Game {
   private restart(): void {
     this.world = this.createWorld()
     this.input.reset()
-    this.rig.snap(this.world.player.x, this.world.player.z)
+    this.input.resetView()
+    this.snapCamera()
+  }
+
+  private snapCamera(): void {
+    const p = this.world.player
+    this.rig.place(p.x, p.z, this.input.yaw, this.input.pitch)
   }
 
   private tick = (time: number): void => {
     this.timer.update(time)
     const dt = this.timer.getDelta()
     if (dt > 0) this.fps += (1 / dt - this.fps) * 0.1
-    this.updateAim()
-    this.stepper.advance(dt, (step) => this.world.step(step, this.input.consume(this.aim.x, this.aim.z)))
-    this.rig.update(this.world.player.x, this.world.player.z, dt)
+    this.stepper.advance(dt, (step) => {
+      const p = this.world.player
+      const yaw = this.input.yaw
+      this.world.step(step, this.input.consume(p.x + Math.sin(yaw) * AIM_DISTANCE, p.z + Math.cos(yaw) * AIM_DISTANCE))
+    })
+    if (this.world.status !== 'playing' && this.input.locked) document.exitPointerLock()
+    const p = this.world.player
+    this.rig.place(p.x, p.z, this.input.yaw, this.input.pitch)
+    this.viewmodel.update(p.weapon.def.id, p.weapon.mag, p.alive, p.x, p.z, dt)
     this.view.sync(this.world, dt, this.camera)
-    this.hud.update(this.world, this.fps)
+    this.hud.update(this.world, this.fps, this.input.locked)
     this.renderer.render(this.view.scene, this.camera)
-  }
-
-  private updateAim(): void {
-    this.ndc.set(this.input.mouseX, this.input.mouseY)
-    this.raycaster.setFromCamera(this.ndc, this.camera)
-    if (!this.raycaster.ray.intersectPlane(this.aimPlane, this.aim)) {
-      this.aim.set(this.world.player.x, AIM_HEIGHT, this.world.player.z - 1)
-    }
   }
 
   private resize = (): void => {
@@ -90,6 +95,7 @@ export class Game {
     window.removeEventListener('resize', this.resize)
     this.unbindInput()
     this.hud.dispose()
+    this.viewmodel.dispose()
     this.view.dispose()
     this.renderer.dispose()
   }
