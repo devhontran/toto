@@ -4,13 +4,6 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 const BASE = `${import.meta.env.BASE_URL}models/`
 
 const FILES = {
-  man: 'character-man.glb',
-  manAlt: 'character-man-alt.glb',
-  manLongsleeves: 'character-man-longsleeves.glb',
-  manSuit: 'character-man-suit.glb',
-  zombie: 'zombie.glb',
-  rifle: 'rifle.glb',
-  pistol: 'pistol.glb',
   house: 'house.glb',
   tree: 'tree.glb',
 } as const

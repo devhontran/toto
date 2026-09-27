@@ -1,23 +1,17 @@
 import * as THREE from 'three'
-import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { World } from '../game/World'
 import type { Assets } from '../level/assets'
 import { EXIT_ZONE, MAP_HALF_WIDTH, MAP_LENGTH } from '../level/map'
 import { REVIVE_TIME } from '../entities/Bot'
 import { ZOMBIE_ATTACK } from '../entities/Zombie'
-import { createRigTemplate, type RigTemplate } from './rig'
-import { HUMAN_CLIPS, HumanView, ZOMBIE_CLIPS, ZombieView } from './characters'
+import { HumanView, ZombieView } from './characters'
+import { BOT_LOOKS, PLAYER_LOOK } from './blocky'
 import { buildHouses, buildTrees } from './town'
 
 const MAX_TRACERS = 128
-const TRACER_Y = 1.1
+const TRACER_Y = 1.25
 const TRACER_WIDTH = 0.12
-const CHARACTER_HEIGHT = 1.8
-const ZOMBIE_HEIGHT = 1.6
-const RIFLE_LENGTH = 0.8
-const PISTOL_LENGTH = 0.35
-const GUN_FORWARD = 0.15
-const ATTACK_WINDOW = 0.4
+const ATTACK_WINDOW = 0.3
 const CULL_Y = 0.9
 const CULL_RADIUS = 1.5
 
@@ -29,35 +23,11 @@ const COLORS = {
   exit: '#39ff88',
 }
 
-function makeGun(gltf: GLTF, length: number): THREE.Object3D {
-  const holder = new THREE.Group()
-  const model = gltf.scene.clone()
-  model.updateMatrixWorld(true)
-  const box = new THREE.Box3().setFromObject(model)
-  const size = box.getSize(new THREE.Vector3())
-  const center = box.getCenter(new THREE.Vector3())
-  const k = length / size.z
-  model.scale.multiplyScalar(k)
-  model.position.set(-center.x * k, -center.y * k, -center.z * k + GUN_FORWARD)
-  holder.add(model)
-  return holder
-}
-
-function humanTemplate(gltf: GLTF): RigTemplate {
-  return createRigTemplate(gltf, {
-    clips: Object.values(HUMAN_CLIPS),
-    poseClip: HUMAN_CLIPS.idle,
-    once: [HUMAN_CLIPS.death],
-    height: CHARACTER_HEIGHT,
-  })
-}
-
 export class SceneView {
   readonly scene = new THREE.Scene()
   private readonly player: HumanView
   private readonly bots: HumanView[] = []
   private readonly reviveRing: THREE.Mesh
-  private readonly zombieTemplate: RigTemplate
   private readonly zombies = new Map<number, ZombieView>()
   private readonly zombiePool: ZombieView[] = []
   private readonly seen = new Set<number>()
@@ -69,14 +39,6 @@ export class SceneView {
   private world: World | null = null
 
   constructor(assets: Assets) {
-    const humanTemplates = [assets.man, assets.manAlt, assets.manLongsleeves, assets.manSuit].map(humanTemplate)
-    this.zombieTemplate = createRigTemplate(assets.zombie, {
-      clips: Object.values(ZOMBIE_CLIPS),
-      poseClip: ZOMBIE_CLIPS.walk,
-      once: [ZOMBIE_CLIPS.death],
-      height: ZOMBIE_HEIGHT,
-    })
-
     this.scene.background = new THREE.Color(COLORS.background)
     this.scene.fog = new THREE.Fog(COLORS.background, 28, 55)
     this.scene.add(new THREE.HemisphereLight('#dfe6ff', '#4a4a3a', 1.8))
@@ -108,14 +70,11 @@ export class SceneView {
     exit.position.set(EXIT_ZONE.x, 0.02, EXIT_ZONE.z)
     this.scene.add(exit)
 
-    this.player = new HumanView(humanTemplates[0], {
-      rifle: makeGun(assets.rifle, RIFLE_LENGTH),
-      pistol: makeGun(assets.pistol, PISTOL_LENGTH),
-    })
-    this.scene.add(this.player.rig.root)
-    for (let i = 1; i < humanTemplates.length; i++) {
-      const bot = new HumanView(humanTemplates[i], { rifle: makeGun(assets.rifle, RIFLE_LENGTH) })
-      this.scene.add(bot.rig.root)
+    this.player = new HumanView(PLAYER_LOOK)
+    this.scene.add(this.player.body.root)
+    for (const look of BOT_LOOKS) {
+      const bot = new HumanView(look)
+      this.scene.add(bot.body.root)
       this.bots.push(bot)
     }
 
@@ -141,12 +100,12 @@ export class SceneView {
   sync(world: World, dt: number, camera: THREE.Camera): void {
     if (world !== this.world) this.reset(world)
     const p = world.player
-    this.player.sync(p, p.weapon.def.id === 'pistol' ? 'pistol' : 'rifle', dt)
+    this.player.sync(p, p.weapon.def.id, dt)
     for (let i = 0; i < this.bots.length; i++) {
       const b = world.bots[i]
       const view = this.bots[i]
       if (!b) {
-        view.rig.root.visible = false
+        view.body.root.visible = false
         continue
       }
       view.sync(b, 'rifle', dt)
@@ -191,24 +150,24 @@ export class SceneView {
       this.seen.add(z.id)
       let view = this.zombies.get(z.id)
       if (!view) {
-        view = this.zombiePool.pop() ?? new ZombieView(this.zombieTemplate)
+        view = this.zombiePool.pop() ?? new ZombieView()
         view.spawn(z.kind)
-        this.scene.add(view.rig.root)
+        this.scene.add(view.body.root)
         this.zombies.set(z.id, view)
       }
-      view.sync({
-        x: z.x,
-        z: z.z,
-        angle: z.angle,
-        alive: z.alive,
-        kind: z.kind,
-        attacking: z.attackCooldown > ZOMBIE_ATTACK.cooldown - ATTACK_WINDOW,
-      })
       this.sphere.center.set(z.x, CULL_Y, z.z)
       this.sphere.radius = CULL_RADIUS
       const onScreen = this.frustum.intersectsSphere(this.sphere)
-      view.rig.root.visible = onScreen
-      if (onScreen) view.rig.update(dt)
+      const since = ZOMBIE_ATTACK.cooldown - z.attackCooldown
+      const f = view.frame
+      f.x = z.x
+      f.z = z.z
+      f.angle = z.angle
+      f.alive = z.alive
+      f.hp = z.hp
+      f.attack = z.alive && since < ATTACK_WINDOW ? since / ATTACK_WINDOW : -1
+      view.sync(dt, onScreen)
+      view.body.root.visible = onScreen
     }
     for (const [id, view] of this.zombies) {
       if (this.seen.has(id)) continue
@@ -218,7 +177,7 @@ export class SceneView {
 
   private release(id: number, view: ZombieView): void {
     this.zombies.delete(id)
-    view.rig.root.removeFromParent()
+    view.body.root.removeFromParent()
     this.zombiePool.push(view)
   }
 
@@ -231,9 +190,6 @@ export class SceneView {
 
   dispose(): void {
     for (const [id, view] of this.zombies) this.release(id, view)
-    for (const view of this.zombiePool) view.rig.dispose()
     this.zombiePool.length = 0
-    this.player.rig.dispose()
-    for (const b of this.bots) b.rig.dispose()
   }
 }
