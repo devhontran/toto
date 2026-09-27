@@ -1,27 +1,30 @@
 import type { Box } from '../systems/collision'
+import { CITY } from './city'
 
-export const MAP_HALF_WIDTH = 20
-export const MAP_LENGTH = 300
-export const PLAYER_START = { x: 0, z: -5 }
-export const EXIT_ZONE = { x: 0, z: -290, r: 6 }
+export const MAP_HALF_WIDTH = CITY.bounds.hw
+export const MAP_LENGTH = CITY.bounds.hd * 2
+export const PLAYER_START = CITY.start
+export const BOARD_ZONE = CITY.airport.boardZone
+export const EXIT_ZONE = BOARD_ZONE
 export const HOUSE_HEIGHT = 4
 
-export const HOUSES: Box[] = [
-  { x: -13, z: -40, hw: 5, hd: 6 },
-  { x: 13, z: -85, hw: 5, hd: 6 },
-  { x: -13, z: -130, hw: 5, hd: 6 },
-  { x: 13, z: -175, hw: 5, hd: 6 },
-  { x: -13, z: -215, hw: 5, hd: 6 },
-  { x: 13, z: -250, hw: 5, hd: 6 },
-]
+export const HOUSES: Box[] = CITY.buildings.map((b) => b.box)
 
 export function boundaryWalls(): Box[] {
   const t = 1
-  const half = MAP_LENGTH / 2
+  const b = CITY.bounds
   return [
-    { x: -MAP_HALF_WIDTH - t, z: -half, hw: t, hd: half + 2 },
-    { x: MAP_HALF_WIDTH + t, z: -half, hw: t, hd: half + 2 },
-    { x: 0, z: t, hw: MAP_HALF_WIDTH + 2, hd: t },
-    { x: 0, z: -MAP_LENGTH - t, hw: MAP_HALF_WIDTH + 2, hd: t },
+    { x: b.x - b.hw - t, z: b.z, hw: t, hd: b.hd + 2 },
+    { x: b.x + b.hw + t, z: b.z, hw: t, hd: b.hd + 2 },
+    { x: b.x, z: b.z + b.hd + t, hw: b.hw + 2, hd: t },
+    { x: b.x, z: b.z - b.hd - t, hw: b.hw + 2, hd: t },
   ]
 }
+
+export const WALLS: readonly Box[] = [
+  ...HOUSES,
+  ...CITY.props,
+  CITY.airport.tower,
+  ...CITY.airport.fences,
+  ...boundaryWalls(),
+]

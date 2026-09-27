@@ -1,16 +1,17 @@
 import type { Box } from '../systems/collision'
 import { castShot, type Hittable } from '../systems/combat'
-import { angleOf, clamp, normalize } from '../lib/math2'
-import { EXIT_ZONE } from '../level/map'
+import { angleOf, normalize } from '../lib/math2'
+import { CITY } from '../level/city'
+import { pointAtDistance, routeProgress } from '../level/route'
 import {
   BOT_ADVANCE_SPEED,
   BOT_AIM_ERROR,
+  BOT_AIRPORT_SWITCH,
   BOT_DOWNED_SEEK_RANGE,
   BOT_ENGAGE_RANGE,
   BOT_HOLD_RANGE,
   BOT_LANES,
   BOT_LANE_LOOKAHEAD,
-  BOT_EXIT_CONVERGE,
   BOT_SPEED,
   REVIVE_HP,
   REVIVE_RANGE,
@@ -83,6 +84,22 @@ function pickTarget<T extends Hittable>(
   return null
 }
 
+function inAirport(x: number, z: number): boolean {
+  const a = CITY.airport.area
+  return Math.abs(x - a.x) <= a.hw && Math.abs(z - a.z) <= a.hd
+}
+
+function routeGoal(self: BotSelf): { x: number; z: number } | null {
+  const own = routeProgress(CITY.route, self.x, self.z)
+  if (inAirport(self.x, self.z) || own.total - own.distance <= BOT_AIRPORT_SWITCH) {
+    const board = CITY.airport.boardZone
+    return Math.hypot(self.x - board.x, self.z - board.z) <= board.r - 1 ? null : board
+  }
+  const ahead = pointAtDistance(CITY.route, own.distance + BOT_LANE_LOOKAHEAD)
+  const lane = BOT_LANES[self.slot] ?? 0
+  return { x: ahead.point.x - ahead.dir.z * lane, z: ahead.point.z + ahead.dir.x * lane }
+}
+
 export function decideBot<T extends Hittable, M extends Teammate>(
   self: BotSelf,
   teammates: readonly M[],
@@ -103,13 +120,10 @@ export function decideBot<T extends Hittable, M extends Teammate>(
       moveZ = n.z
       speed = BOT_SPEED
     }
-  } else {
-    const atExit = Math.hypot(self.x - EXIT_ZONE.x, self.z - EXIT_ZONE.z) <= EXIT_ZONE.r - 1
-    const nearestZombie = nearestAliveDist(self, zombies)
-    if (!atExit && nearestZombie > BOT_HOLD_RANGE) {
-      const converge = clamp((EXIT_ZONE.z + BOT_EXIT_CONVERGE - self.z) / BOT_EXIT_CONVERGE, 0, 1)
-      const lane = BOT_LANES[self.slot] + (EXIT_ZONE.x - BOT_LANES[self.slot]) * converge
-      const n = normalize(lane - self.x, -BOT_LANE_LOOKAHEAD)
+  } else if (nearestAliveDist(self, zombies) > BOT_HOLD_RANGE) {
+    const goal = routeGoal(self)
+    if (goal) {
+      const n = normalize(goal.x - self.x, goal.z - self.z)
       moveX = n.x
       moveZ = n.z
       speed = BOT_ADVANCE_SPEED
