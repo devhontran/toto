@@ -1,53 +1,81 @@
 import * as THREE from 'three'
+import { World } from './World'
+import { FixedStep } from './fixedStep'
+import { InputState, bindInput } from './Input'
+import { CameraRig } from './CameraRig'
+import { SceneView } from '../render/SceneView'
+import { Hud } from '../ui/hud'
+
+const STEP = 1 / 60
+const MAX_FRAME = 0.25
+const AIM_HEIGHT = 1
 
 export class Game {
-  private renderer: THREE.WebGLRenderer
-  private scene = new THREE.Scene()
-  private camera: THREE.PerspectiveCamera
-  private timer = new THREE.Timer()
-  private cube: THREE.Mesh
+  private readonly renderer: THREE.WebGLRenderer
+  private readonly camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200)
+  private readonly rig: CameraRig
+  private readonly view = new SceneView()
+  private readonly input = new InputState()
+  private readonly unbindInput: () => void
+  private readonly hud: Hud
+  private readonly stepper = new FixedStep(STEP, MAX_FRAME)
+  private readonly timer = new THREE.Timer()
+  private readonly raycaster = new THREE.Raycaster()
+  private readonly aimPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -AIM_HEIGHT)
+  private readonly ndc = new THREE.Vector2()
+  private readonly aim = new THREE.Vector3()
+  private readonly debug: boolean
+  private world: World
+  private fps = 60
 
   constructor(canvas: HTMLCanvasElement) {
+    this.debug = new URLSearchParams(location.search).has('debug')
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-
-    this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100)
-    this.camera.position.set(0, 1.5, 5)
-    this.camera.lookAt(0, 0, 0)
-
-    this.scene.background = new THREE.Color('#0b0b10')
-    this.scene.add(new THREE.AmbientLight('#ffffff', 0.4))
-    const sun = new THREE.DirectionalLight('#ffffff', 2)
-    sun.position.set(3, 5, 4)
-    this.scene.add(sun)
-
-    this.cube = new THREE.Mesh(
-      new THREE.BoxGeometry(1, 1, 1),
-      new THREE.MeshStandardMaterial({ color: '#ff5a36' }),
-    )
-    this.scene.add(this.cube)
-
+    this.rig = new CameraRig(this.camera)
+    this.unbindInput = bindInput(this.input, canvas)
+    this.hud = new Hud(document.body, () => this.restart(), this.debug)
+    this.world = this.createWorld()
+    this.rig.snap(this.world.player.x, this.world.player.z)
     this.resize()
     window.addEventListener('resize', this.resize)
   }
 
-  start() {
+  start(): void {
     this.renderer.setAnimationLoop(this.tick)
   }
 
-  private tick = (time: number) => {
+  private createWorld(): World {
+    return new World({ allWeapons: this.debug })
+  }
+
+  private restart(): void {
+    this.world = this.createWorld()
+    this.input.reset()
+    this.rig.snap(this.world.player.x, this.world.player.z)
+  }
+
+  private tick = (time: number): void => {
     this.timer.update(time)
     const dt = this.timer.getDelta()
-    this.update(dt)
-    this.renderer.render(this.scene, this.camera)
+    if (dt > 0) this.fps += (1 / dt - this.fps) * 0.1
+    this.updateAim()
+    this.stepper.advance(dt, (step) => this.world.step(step, this.input.consume(this.aim.x, this.aim.z)))
+    this.view.sync(this.world)
+    this.rig.update(this.world.player.x, this.world.player.z, dt)
+    this.hud.update(this.world, this.fps)
+    this.renderer.render(this.view.scene, this.camera)
   }
 
-  private update(dt: number) {
-    this.cube.rotation.x += dt * 0.6
-    this.cube.rotation.y += dt * 0.9
+  private updateAim(): void {
+    this.ndc.set(this.input.mouseX, this.input.mouseY)
+    this.raycaster.setFromCamera(this.ndc, this.camera)
+    if (!this.raycaster.ray.intersectPlane(this.aimPlane, this.aim)) {
+      this.aim.set(this.world.player.x, AIM_HEIGHT, this.world.player.z - 1)
+    }
   }
 
-  private resize = () => {
+  private resize = (): void => {
     const w = window.innerWidth
     const h = window.innerHeight
     this.camera.aspect = w / h
@@ -55,9 +83,11 @@ export class Game {
     this.renderer.setSize(w, h, false)
   }
 
-  dispose() {
+  dispose(): void {
     this.renderer.setAnimationLoop(null)
     window.removeEventListener('resize', this.resize)
+    this.unbindInput()
+    this.hud.dispose()
     this.renderer.dispose()
   }
 }

@@ -23,3 +23,94 @@ body {
   width: 100vw;
   height: 100dvh;
 }
+
+#game {
+  cursor: crosshair;
+}
+
+.hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.8);
+  user-select: none;
+}
+
+.hud__fps {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  font: 12px ui-monospace, monospace;
+  opacity: 0.7;
+}
+
+.hud__top {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  display: flex;
+  gap: 16px;
+}
+
+.hud__hp {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud__hp-bar {
+  width: 200px;
+  height: 12px;
+  background: rgb(255 255 255 / 0.15);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.hud__hp-fill {
+  height: 100%;
+  background: #ff4d4d;
+  transition: width 0.15s;
+}
+
+.hud__weapon {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.hud__ammo {
+  font-size: 24px;
+}
+
+.hud__end {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgb(0 0 0 / 0.6);
+  pointer-events: auto;
+}
+
+.hud__end[hidden] {
+  display: none;
+}
+
+.hud__end button {
+  padding: 10px 24px;
+  font: inherit;
+  color: #0b0b10;
+  background: #fff;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
