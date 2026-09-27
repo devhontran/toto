@@ -2,6 +2,7 @@ import type { World } from '../game/World'
 import { PLAYER_MAX_HP } from '../entities/Player'
 import { BOT_MAX_HP } from '../entities/Bot'
 import { EXIT_ZONE } from '../level/map'
+import { ZOMBIE_STATS } from '../entities/Zombie'
 
 function setText(el: HTMLElement, value: string): void {
   if (el.textContent !== value) el.textContent = value
@@ -28,6 +29,8 @@ export class Hud {
   private readonly botRows: HTMLElement[]
   private readonly downed: HTMLElement
   private readonly hint: HTMLElement
+  private readonly boss: HTMLElement
+  private readonly bossFill: HTMLElement
   private readonly showFps: boolean
 
   constructor(parent: HTMLElement, onRestart: () => void, showFps: boolean) {
@@ -38,6 +41,12 @@ export class Hud {
       <div class="hud__fps" data-fps></div>
       <div class="hud__crosshair"></div>
       <div class="hud__hint" data-hint>Click để chơi</div>
+      <div data-boss hidden style="position:absolute;top:14px;left:50%;transform:translateX(-50%);width:40vw;text-align:center">
+        <div style="margin-bottom:4px;letter-spacing:0.08em">ZOMBIE KHỔNG LỒ</div>
+        <div style="height:12px;background:rgb(0 0 0 / 0.55);border:2px solid rgb(0 0 0 / 0.8)">
+          <div data-boss-fill style="height:100%;width:100%;background:#d42020"></div>
+        </div>
+      </div>
       <div class="hud__top">
         <span data-kills></span>
         <span data-distance></span>
@@ -88,6 +97,8 @@ export class Hud {
     this.botRows = [0, 1, 2].map((i) => q(`[data-bot="${i}"]`))
     this.downed = q('[data-downed]')
     this.hint = q('[data-hint]')
+    this.boss = q('[data-boss]')
+    this.bossFill = q('[data-boss-fill]')
     this.fps.hidden = !showFps
     q('[data-restart]').addEventListener('click', onRestart)
   }
@@ -115,6 +126,9 @@ export class Hud {
       this.botRows[i].classList.toggle('hud__bot--downed', !bot.alive)
     }
     this.downed.hidden = p.alive
+    const boss = world.boss
+    this.boss.hidden = !boss || !boss.alive
+    if (boss && boss.alive) this.bossFill.style.width = `${(boss.hp / ZOMBIE_STATS.boss.hp) * 100}%`
 
     const ended = world.status !== 'playing'
     this.hint.hidden = locked || ended
