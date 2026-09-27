@@ -11,6 +11,7 @@ export class Player {
   angle = Math.PI
   hp = PLAYER_MAX_HP
   alive = true
+  reviveProgress = 0
   weapons: WeaponState[] = [new WeaponState(WEAPONS.pistol)]
   current = 0
 
