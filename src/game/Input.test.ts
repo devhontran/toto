@@ -51,6 +51,18 @@ describe('InputState', () => {
     expect(f.fire).toBe(false)
   })
 
+  it('holds the big map only while M is down and drops it on reset', () => {
+    const s = new InputState()
+    expect(s.mapHeld).toBe(false)
+    s.handleKey('KeyM', true)
+    expect(s.mapHeld).toBe(true)
+    s.handleKey('KeyM', false)
+    expect(s.mapHeld).toBe(false)
+    s.handleKey('KeyM', true)
+    s.reset()
+    expect(s.mapHeld).toBe(false)
+  })
+
   it('passes the aim point through', () => {
     const f = new InputState().consume(3, -7)
     expect(f.aimX).toBe(3)

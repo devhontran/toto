@@ -52,6 +52,10 @@ export class InputState {
     return (this.keys.has('KeyD') ? 1 : 0) - (this.keys.has('KeyA') ? 1 : 0)
   }
 
+  get mapHeld(): boolean {
+    return this.keys.has('KeyM')
+  }
+
   get forward(): number {
     return (this.keys.has('KeyW') ? 1 : 0) - (this.keys.has('KeyS') ? 1 : 0)
   }
