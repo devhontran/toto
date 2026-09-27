@@ -37,7 +37,7 @@ describe('World', () => {
     expect(w.player.x).toBeCloseTo(-7.6, 2)
   })
 
-  it('kills a zombie in front with pistol fire and counts the kill', () => {
+  it('kills a zombie in front with the starting rifle and counts the kill', () => {
     const w = quiet()
     const z = w.spawnZombie('walker', 0, -15)
     run(w, 1, input({ fire: true }))
@@ -102,9 +102,16 @@ describe('World', () => {
     expect(w.zombies).toHaveLength(0)
   })
 
-  it('switches weapons when owned', () => {
-    const w = quiet(true)
+  it('starts with a rifle and can switch to the backup pistol', () => {
+    const w = quiet()
+    expect(w.player.weapon.def.id).toBe('rifle')
     w.step(DT, input({ switchTo: 1 }))
+    expect(w.player.weapon.def.id).toBe('pistol')
+  })
+
+  it('switches to the debug shotgun when owned', () => {
+    const w = quiet(true)
+    w.step(DT, input({ switchTo: 2 }))
     expect(w.player.weapon.def.id).toBe('shotgun')
   })
 

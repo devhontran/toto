@@ -8,7 +8,7 @@ export const BOT_ENGAGE_RANGE = 15
 export const BOT_HOLD_RANGE = 10
 export const BOT_LANE_LOOKAHEAD = 10
 export const BOT_AIM_ERROR = (5 * Math.PI) / 180
-export const BOT_COOLDOWN = 1 / (4 * 0.7)
+export const BOT_COOLDOWN = 1 / (10 * 0.7)
 export const BOT_DOWNED_SEEK_RANGE = 20
 export const REVIVE_RANGE = 1.5
 export const REVIVE_TIME = 3
@@ -27,7 +27,7 @@ export class Bot {
   hp = BOT_MAX_HP
   alive = true
   reviveProgress = 0
-  weapon = new WeaponState(WEAPONS.pistol)
+  weapon = new WeaponState(WEAPONS.rifle, Infinity)
 
   constructor(slot: number) {
     this.slot = slot

@@ -12,7 +12,7 @@ export class Player {
   hp = PLAYER_MAX_HP
   alive = true
   reviveProgress = 0
-  weapons: WeaponState[] = [new WeaponState(WEAPONS.pistol)]
+  weapons: WeaponState[] = [new WeaponState(WEAPONS.rifle, 120), new WeaponState(WEAPONS.pistol)]
   current = 0
 
   get weapon(): WeaponState {

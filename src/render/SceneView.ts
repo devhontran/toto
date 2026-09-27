@@ -27,6 +27,8 @@ const COLORS = {
 export class SceneView {
   readonly scene = new THREE.Scene()
   private readonly player = new THREE.Group()
+  private readonly playerPistol: THREE.Mesh
+  private readonly playerRifle: THREE.Mesh
   private readonly bots: THREE.Group[] = []
   private readonly reviveRing: THREE.Mesh
   private readonly zombies: THREE.InstancedMesh
@@ -76,22 +78,23 @@ export class SceneView {
       0,
     )
     this.player.add(new THREE.Mesh(bodyGeo, new THREE.MeshStandardMaterial({ color: COLORS.player })))
-    const gun = new THREE.Mesh(
-      new THREE.BoxGeometry(0.12, 0.12, 0.7),
-      new THREE.MeshStandardMaterial({ color: COLORS.gun }),
-    )
-    gun.position.set(0.2, TRACER_Y, 0.45)
-    this.player.add(gun)
+    const gunMat = new THREE.MeshStandardMaterial({ color: COLORS.gun })
+    this.playerPistol = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.7), gunMat)
+    this.playerPistol.position.set(0.2, TRACER_Y, 0.45)
+    this.player.add(this.playerPistol)
+    this.playerRifle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.9), gunMat)
+    this.playerRifle.position.set(0.2, TRACER_Y, 0.55)
+    this.player.add(this.playerRifle)
     this.scene.add(this.player)
 
     for (const c of BOT_COLORS) {
       const group = new THREE.Group()
       group.add(new THREE.Mesh(bodyGeo, new THREE.MeshStandardMaterial({ color: c })))
       const botGun = new THREE.Mesh(
-        new THREE.BoxGeometry(0.12, 0.12, 0.7),
+        new THREE.BoxGeometry(0.12, 0.12, 0.9),
         new THREE.MeshStandardMaterial({ color: COLORS.gun }),
       )
-      botGun.position.set(0.2, TRACER_Y, 0.45)
+      botGun.position.set(0.2, TRACER_Y, 0.55)
       group.add(botGun)
       this.scene.add(group)
       this.bots.push(group)
@@ -127,6 +130,9 @@ export class SceneView {
     const p = world.player
     this.player.position.set(p.x, p.alive ? 0 : BODY_RADIUS, p.z)
     this.player.rotation.set(p.alive ? 0 : -Math.PI / 2, p.angle, 0)
+    const rifleOut = p.weapon.def.id === 'rifle'
+    this.playerRifle.visible = rifleOut
+    this.playerPistol.visible = !rifleOut
 
     for (let i = 0; i < this.bots.length; i++) {
       const b = world.bots[i]

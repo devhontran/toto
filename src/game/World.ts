@@ -77,7 +77,7 @@ export class World {
       : []
     this.teammates = [this.player, ...this.bots]
     if (opts.allWeapons) {
-      this.player.weapons.push(new WeaponState(WEAPONS.shotgun, 24), new WeaponState(WEAPONS.rifle, 90))
+      this.player.weapons.push(new WeaponState(WEAPONS.shotgun, 24))
     }
   }
 

@@ -52,6 +52,18 @@ describe('WeaponState', () => {
     expect(w.reserve).toBe(0)
   })
 
+  it('empties an unlimited-reserve rifle mag and reloads it back to full', () => {
+    const w = new WeaponState(WEAPONS.rifle, Infinity)
+    w.mag = 0
+    expect(w.tryFire()).toBe(false)
+    expect(w.reloading).toBe(true)
+    w.update(1.5)
+    expect(w.reloading).toBe(false)
+    expect(w.mag).toBe(30)
+    expect(Number.isFinite(w.mag)).toBe(true)
+    expect(w.reserve).toBe(Infinity)
+  })
+
   it('cancelReload stops a reload in progress', () => {
     const w = new WeaponState(WEAPONS.pistol)
     w.mag = 3
